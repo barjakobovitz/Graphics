@@ -95,7 +95,8 @@ class SeamImage:
             - np.gradient or other off-the-shelf tools are NOT allowed, however feel free to compare yourself to them
         """
 
-        gs_2D = self.gs[:, :, 0]
+        
+        gs_2D=self.gs[:, :, 0]
         # Pad the image with 0.5 on all sides
         padded_img = np.pad(gs_2D, ((1, 1), (1, 1)), 'constant', constant_values=0.5)
 
