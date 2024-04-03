@@ -85,7 +85,6 @@ class SeamImage:
 
         return grayscale
 
-        raise NotImplementedError("TODO: Implement SeamImage.rgb_to_grayscale")
 
     # @NI_decor
     def calc_gradient_magnitude(self):
@@ -100,7 +99,7 @@ class SeamImage:
             - np.gradient or other off-the-shelf tools are NOT allowed, however feel free to compare yourself to them
         """
 
-
+        
         gs_2D=self.gs[:, :, 0]
         # Pad the image with 0.5 on all sides
         padded_img = np.pad(gs_2D, ((1, 1), (1, 1)), 'constant', constant_values=0.5)
@@ -121,7 +120,7 @@ class SeamImage:
         return magnitude
 
 
-        raise NotImplementedError("TODO: Implement SeamImage.calc_gradient_magnitude")
+        
         
     def calc_M(self):
         pass
