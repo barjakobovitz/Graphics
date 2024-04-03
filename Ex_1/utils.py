@@ -6,7 +6,7 @@ from abc import abstractmethod, abstractstaticmethod
 from os.path import basename
 import functools
 
-    
+
 def NI_decor(fn):
     def wrap_fn(self, *args, **kwargs):
         try:
@@ -29,18 +29,18 @@ class SeamImage:
         # Do not change #
         #################
         self.path = img_path
-        
+
         self.gs_weights = np.array([[0.299, 0.587, 0.114]]).T
-        
+
         self.rgb = self.load_image(img_path)
         self.resized_rgb = self.rgb.copy()
 
         self.vis_seams = vis_seams
         if vis_seams:
             self.seams_rgb = self.rgb.copy()
-        
+
         self.h, self.w = self.rgb.shape[:2]
-        
+
         try:
             self.gs = self.rgb_to_grayscale(self.rgb)
             self.resized_gs = self.gs.copy()
@@ -58,13 +58,13 @@ class SeamImage:
         self.seam_history = []
         self.seam_balance = 0
 
-        # This might serve you to keep tracking original pixel indices 
+        # This might serve you to keep tracking original pixel indices
         self.idx_map_h, self.idx_map_v = np.meshgrid(range(self.w), range(self.h))
 
     def rgb_to_grayscale(self, np_img):
         """ Converts a np RGB image into grayscale (using self.gs_weights).
         Parameters
-            np_img : ndarray (float32) of shape (h, w, 3) 
+            np_img : ndarray (float32) of shape (h, w, 3)
         Returns:
             grayscale image (float32) of shape (h, w, 1)
 
@@ -72,7 +72,22 @@ class SeamImage:
             Use NumpyPy vectorized matrix multiplication for high performance.
             To prevent outlier values in the boundaries, we recommend to pad them with 0.5
         """
-        raise NotImplementedError("TODO: Implement SeamImage.rgb_to_grayscale")
+        # Ensure the image is float32
+        np_img = np_img.astype(np.float32)
+
+        # Pad the image with 0.5 on all sides
+        padded_img = np.pad(np_img, ((1, 1), (1, 1), (0, 0)), 'constant', constant_values=0.5)
+
+        # Perform the weighted sum (dot product) for the conversion, considering the padding
+        grayscale_padded = np.dot(padded_img[..., :3], self.gs_weights)
+
+        # Remove the padding by slicing
+        grayscale = grayscale_padded[1:-1, 1:-1]
+
+        # Reshape to add an extra dimension at the end for consistency
+        grayscale = grayscale[..., np.newaxis]
+
+        return grayscale
 
     # @NI_decor
     def calc_gradient_magnitude(self):
@@ -87,10 +102,10 @@ class SeamImage:
             - np.gradient or other off-the-shelf tools are NOT allowed, however feel free to compare yourself to them
         """
         raise NotImplementedError("TODO: Implement SeamImage.calc_gradient_magnitude")
-        
+
     def calc_M(self):
         pass
-             
+
     def seams_removal(self, num_remove):
         pass
 
@@ -135,7 +150,7 @@ class VerticalSeamImage(SeamImage):
             self.M = self.calc_M()
         except NotImplementedError as e:
             print(e)
-    
+
     # @NI_decor
     def calc_M(self):
         """ Calculates the matrix M discussed in lecture (with forward-looking cost)
@@ -152,7 +167,7 @@ class VerticalSeamImage(SeamImage):
     # @NI_decor
     def seams_removal(self, num_remove: int):
         """ Iterates num_remove times and removes num_remove vertical seams
-        
+
         Parameters:
             num_remove (int): number of vertical seam to be removed
 
@@ -238,7 +253,7 @@ class VerticalSeamImage(SeamImage):
 
         """
         raise NotImplementedError("TODO: Implement SeamImage.seams_addition")
-    
+
     # @NI_decor
     def seams_addition_horizontal(self, num_add):
         """ A wrapper for removing num_add horizontal seams (just a recommendation)
@@ -267,7 +282,7 @@ class VerticalSeamImage(SeamImage):
     # @jit(nopython=True)
     def calc_bt_mat(M, E, backtrack_mat):
         """ Fills the BT back-tracking index matrix. This function is static in order to support Numba. To use it, uncomment the decorator above.
-        
+
         Recommnded parameters (member of the class, to be filled):
             M: np.ndarray (float32) of shape (h,w)
             backtrack_mat: np.ndarray (int32) of shape (h,w): to be filled here
@@ -292,7 +307,7 @@ class SCWithObjRemoval(VerticalSeamImage):
             self.preprocess_masks()
         except KeyError:
             print("TODO (Bonus): Create and add Jurassic's mask")
-        
+
         try:
             self.M = self.calc_M()
         except NotImplementedError as e:
@@ -311,7 +326,7 @@ class SCWithObjRemoval(VerticalSeamImage):
     # @NI_decor
     def apply_mask(self):
         """ Applies all active masks on the image
-            
+
             Guidelines & hints:
                 - you need to apply the masks on other matrices!
                 - think how to force seams to pass through a mask's object..
