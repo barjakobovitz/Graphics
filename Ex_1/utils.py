@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from PIL import Image
 from numba import jit
@@ -82,7 +84,6 @@ class SeamImage:
         # Removing the padding
         return grayscale_img[1:-1, 1:-1]
 
-
     # @NI_decor
     def calc_gradient_magnitude(self):
         """ Calculate gradient magnitude of a grayscale image
@@ -146,6 +147,15 @@ class VerticalSeamImage(SeamImage):
             print(e)
 
     # @NI_decor
+    def pixel_energy(grayscale_img, i, j):
+        h, w = grayscale_img.shape
+        energy_vertical = abs(grayscale_img[i, j] - grayscale_img[i, j + 1]) if j < w - 1 else abs(
+            grayscale_img[i, j] - grayscale_img[i, j - 1])
+        energy_horizontal = abs(grayscale_img[i, j] - grayscale_img[i + 1, j]) if i < h - 1 else abs(
+            grayscale_img[i, j] - grayscale_img[i - 1, j])
+
+        return math.sqrt(energy_vertical ** 2 + energy_horizontal ** 2)
+
     def calc_M(self):
         """ Calculates the matrix M discussed in lecture (with forward-looking cost)
 
@@ -156,7 +166,28 @@ class VerticalSeamImage(SeamImage):
             As taught, the energy is calculated from top to bottom.
             You might find the function 'np.roll' useful.
         """
-        raise NotImplementedError("TODO: Implement SeamImage.calc_M")
+        grayscale_img = self.gs
+        h, w = grayscale_img.shape
+        M = np.zeros_like(grayscale_img, dtype=np.float32)
+        self.E = np.zeros_like(grayscale_img, dtype=np.float32)
+
+        for i in range(h):
+            for j in range(w):
+                self.E[i, j] = self.pixel_energy(grayscale_img, i, j)
+
+        # Initialize the first row of M with the first row of E
+        M[0, :] = self.E[0, :]
+
+        for i in range(1, h):
+            left = np.roll(M[i-1, :], 1)
+            left[0] = np.inf  # Handle boundary conditions by setting to infinity (or a very high value)
+            right = np.roll(M[i-1, :], -1)
+            right[-1] = np.inf  # Handle boundary conditions
+            middle = M[i-1, :]
+
+            # Use numpy to calculate the minimum of the three (left, middle, right) efficiently
+            min_upper = np.minimum(np.minimum(left, middle), right)
+            M[i, :] = self.E[i, :] + min_upper
 
     # @NI_decor
     def seams_removal(self, num_remove: int):
