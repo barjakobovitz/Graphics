@@ -13,6 +13,7 @@ def NI_decor(fn):
             fn(self, *args, **kwargs)
         except NotImplementedError as e:
             print(e)
+
     return wrap_fn
 
 
@@ -72,22 +73,15 @@ class SeamImage:
             Use NumpyPy vectorized matrix multiplication for high performance.
             To prevent outlier values in the boundaries, we recommend to pad them with 0.5
         """
-        # Ensure the image is float32
-        np_img = np_img.astype(np.float32)
+        # Add padding to the image
+        padded_img = np.pad(np_img, ((1, 1), (1, 1), (0, 0)), mode='constant', constant_values=0.5)
 
-        # Pad the image with 0.5 on all sides
-        padded_img = np.pad(np_img, ((1, 1), (1, 1), (0, 0)), 'constant', constant_values=0.5)
+        # Apply the Grayscale Value
+        grayscale_img = np.dot(padded_img[..., :3], self.gs_weights)
 
-        # Perform the weighted sum (dot product) for the conversion, considering the padding
-        grayscale_padded = np.dot(padded_img[..., :3], self.gs_weights)
+        # Removing the padding
+        return grayscale_img[1:-1, 1:-1]
 
-        # Remove the padding by slicing
-        grayscale = grayscale_padded[1:-1, 1:-1]
-
-        # Reshape to add an extra dimension at the end for consistency
-        grayscale = grayscale[..., np.newaxis]
-
-        return grayscale
 
     # @NI_decor
     def calc_gradient_magnitude(self):
@@ -194,9 +188,9 @@ class VerticalSeamImage(SeamImage):
     def paint_seams(self):
         for s in self.seam_history:
             for i, s_i in enumerate(s):
-                self.cumm_mask[self.idx_map_v[i,s_i], self.idx_map_h[i,s_i]] = False
+                self.cumm_mask[self.idx_map_v[i, s_i], self.idx_map_h[i, s_i]] = False
         cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
-        self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1,0,0])
+        self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1, 0, 0])
 
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
@@ -301,7 +295,8 @@ class SCWithObjRemoval(VerticalSeamImage):
         """
         super().__init__(*args, **kwargs)
         self.active_masks = active_masks
-        self.obj_masks = {basename(img_path)[:-4]: self.load_image(img_path, format='L') for img_path in glob.glob('images/obj_masks/*')}
+        self.obj_masks = {basename(img_path)[:-4]: self.load_image(img_path, format='L') for img_path in
+                          glob.glob('images/obj_masks/*')}
 
         try:
             self.preprocess_masks()
@@ -333,11 +328,10 @@ class SCWithObjRemoval(VerticalSeamImage):
         """
         raise NotImplementedError("TODO: Implement SeamImage.apply_mask")
 
-
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
         self.M = self.calc_M()
-        self.apply_mask() # -> added
+        self.apply_mask()  # -> added
         self.backtrack_mat = np.zeros_like(self.M, dtype=int)
         self.mask = np.ones_like(self.M, dtype=bool)
 
@@ -390,24 +384,24 @@ def bilinear(image, new_shape):
     in_height, in_width, _ = image.shape
     out_height, out_width = new_shape
     new_image = np.zeros(new_shape)
+
     ###Your code here###
     def get_scaled_param(org, size_in, size_out):
         scaled_org = (org * size_in) / size_out
         scaled_org = min(scaled_org, size_in - 1)
         return scaled_org
-    scaled_x_grid = [get_scaled_param(x,in_width,out_width) for x in range(out_width)]
-    scaled_y_grid = [get_scaled_param(y,in_height,out_height) for y in range(out_height)]
+
+    scaled_x_grid = [get_scaled_param(x, in_width, out_width) for x in range(out_width)]
+    scaled_y_grid = [get_scaled_param(y, in_height, out_height) for y in range(out_height)]
     x1s = np.array(scaled_x_grid, dtype=int)
-    y1s = np.array(scaled_y_grid,dtype=int)
+    y1s = np.array(scaled_y_grid, dtype=int)
     x2s = np.array(scaled_x_grid, dtype=int) + 1
     x2s[x2s > in_width - 1] = in_width - 1
-    y2s = np.array(scaled_y_grid,dtype=int) + 1
+    y2s = np.array(scaled_y_grid, dtype=int) + 1
     y2s[y2s > in_height - 1] = in_height - 1
     dx = np.reshape(scaled_x_grid - x1s, (out_width, 1))
     dy = np.reshape(scaled_y_grid - y1s, (out_height, 1))
-    c1 = np.reshape(image[y1s][:,x1s] * dx + (1 - dx) * image[y1s][:,x2s], (out_width, out_height, 3))
-    c2 = np.reshape(image[y2s][:,x1s] * dx + (1 - dx) * image[y2s][:,x2s], (out_width, out_height, 3))
+    c1 = np.reshape(image[y1s][:, x1s] * dx + (1 - dx) * image[y1s][:, x2s], (out_width, out_height, 3))
+    c2 = np.reshape(image[y2s][:, x1s] * dx + (1 - dx) * image[y2s][:, x2s], (out_width, out_height, 3))
     new_image = np.reshape(c1 * dy + (1 - dy) * c2, (out_height, out_width, 3)).astype(int)
     return new_image
-
-
