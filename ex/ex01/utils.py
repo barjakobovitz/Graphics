@@ -167,30 +167,21 @@ class VerticalSeamImage(SeamImage):
             As taught, the energy is calculated from top to bottom.
             You might find the function 'np.roll' useful.
         """
-        h, w = self.E.shape
+        # Initialize the first row of M with the first row of E
         M = np.zeros_like(self.E)
         M[0, :] = self.E[0, :]
-
-        # Precompute forward energy costs
-        C_left = np.abs(np.roll(self.E, 1, axis=1) - np.roll(self.E, -1, axis=1))
-        C_up = np.abs(np.roll(self.E, -1, axis=0) - self.E)
-        C_right = C_left  # C_left and C_right are the same for vertical differences
-
-        C_left[:, 0] = C_left[:, -1] = C_up[0, :] = np.inf  # Handle boundary conditions
+        h, w = self.E.shape
 
         for i in range(1, h):
-            # Use shifted slices instead of np.roll for efficiency
-            M_left = np.hstack((np.inf, M[i - 1, :-1]))
-            M_middle = M[i - 1, :]
-            M_right = np.hstack((M[i - 1, 1:], np.inf))
+            left = np.roll(M[i-1, :], 1)
+            left[0] = np.inf  # Handle boundary conditions
+            right = np.roll(M[i-1, :], -1)
+            right[-1] = np.inf  # Handle boundary conditions
+            middle = M[i-1, :]
 
-            # Compute costs for moving left, up, and right
-            cost_left = M_left + C_up[i, :] + C_right[i, :]
-            cost_middle = M_middle + C_up[i, :]
-            cost_right = M_right + C_up[i, :] + C_left[i, :]
-
-            # Compute the total cost
-            M[i, :] = self.E[i, :] + np.min(np.vstack((cost_left, cost_middle, cost_right)), axis=0)
+            # calculate the minimum of the three (left, middle, right)
+            min_upper = np.minimum(np.minimum(left, middle), right)
+            M[i, :] = self.E[i, :] + min_upper
 
         return M
 
