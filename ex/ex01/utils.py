@@ -73,14 +73,7 @@ class SeamImage:
             Use NumpyPy vectorized matrix multiplication for high performance.
             To prevent outlier values in the boundaries, we recommend to pad them with 0.5
         """
-        # Add padding to the image
-        padded_img = np.pad(np_img, ((1, 1), (1, 1), (0, 0)), mode='constant', constant_values=0.5)
-
-        # Apply the Grayscale Value
-        grayscale_img = np.dot(padded_img[..., :3], self.gs_weights)
-
-        # Removing the padding
-        return grayscale_img[1:-1, 1:-1]
+        return np.dot(np_img, self.gs_weights)[..., 0]
 
     # @NI_decor
     def calc_gradient_magnitude(self):
@@ -95,8 +88,7 @@ class SeamImage:
             - np.gradient or other off-the-shelf tools are NOT allowed, however feel free to compare yourself to them
         """
 
-        
-        gs_2D=self.gs[:, :, 0]
+        gs_2D = self.resized_gs
         # Pad the image with 0.5 on all sides
         padded_img = np.pad(gs_2D, ((1, 1), (1, 1)), 'constant', constant_values=0.5)
 
@@ -175,8 +167,8 @@ class VerticalSeamImage(SeamImage):
             As taught, the energy is calculated from top to bottom.
             You might find the function 'np.roll' useful.
         """
-        M = np.zeros_like(self.E)
         # Initialize the first row of M with the first row of E
+        M = np.zeros_like(self.E)
         M[0, :] = self.E[0, :]
         h, w = self.E.shape
 
@@ -218,10 +210,18 @@ class VerticalSeamImage(SeamImage):
             - removing seams couple of times (call the function more than once)
             - visualize the original image with removed seams marked (for comparison)
         """
+        for _ in range(num_remove):
+            self.init_mats()
+            self.calc_bt_mat(self.M, self.E, self.backtrack_mat)
+            seam = self.backtrack_seam()
+            self.seam_history.append(seam)
+            self.paint_seams()
+            self.remove_seam()
+            self.seam_history = []
 
-
-        
-        raise NotImplementedError("TODO: Implement SeamImage.seams_removal")
+    def update_ref_mat(self):
+        self.idx_map_h = self.idx_map_h[self.mask].reshape(self.h, self.w - 1)
+        self.idx_map_v = self.idx_map_v[self.mask].reshape(self.h, self.w - 1)
 
     def paint_seams(self):
         for s in self.seam_history:
@@ -235,6 +235,19 @@ class VerticalSeamImage(SeamImage):
         self.M = self.calc_M()
         self.backtrack_mat = np.zeros_like(self.M, dtype=int)
         self.mask = np.ones_like(self.M, dtype=bool)
+
+    def rotate_mats(self, clockwise=False):
+        if clockwise:
+            self.resized_rgb = np.rot90(self.resized_rgb, -1)  # Rotate clockwise
+            self.resized_gs = np.rot90(self.resized_gs, -1)
+            self.idx_map_h = np.rot90(self.idx_map_h, -1)
+            self.idx_map_v = np.rot90(self.idx_map_v, -1)
+        else:
+            self.resized_rgb = np.rot90(self.resized_rgb)  # Rotate counter-clockwise
+            self.resized_gs = np.rot90(self.resized_gs)
+            self.idx_map_h = np.rot90(self.idx_map_h)
+            self.idx_map_v = np.rot90(self.idx_map_v)
+        self.h, self.w = self.resized_gs.shape
 
     # @NI_decor
     def seams_removal_horizontal(self, num_remove):
@@ -254,13 +267,18 @@ class VerticalSeamImage(SeamImage):
         Parameters:
             num_remove (int): umber of vertical seam to be removed
         """
-        raise NotImplementedError("TODO: Implement SeamImage.seams_removal_vertical")
+        self.seams_removal(num_remove)
 
     # @NI_decor
     def backtrack_seam(self):
         """ Backtracks a seam for Seam Carving as taught in lecture
         """
-        raise NotImplementedError("TODO: Implement SeamImage.backtrack_seam_b")
+        seam = np.zeros(self.h, dtype=np.int32)
+        j = np.argmin(self.M[-1])
+        for i in range(self.h - 1, -1, -1):
+            seam[i] = j
+            j = self.backtrack_mat[i, j]
+        return seam
 
     # @NI_decor
     def remove_seam(self):
@@ -269,7 +287,14 @@ class VerticalSeamImage(SeamImage):
         Guidelines & hints:
         In order to apply the removal, you might want to extend the seam mask to support 3 channels (rgb) using: 3d_mak = np.stack([1d_mask] * 3, axis=2), and then use it to create a resized version.
         """
-        raise NotImplementedError("TODO: Implement SeamImage.remove_seam")
+        self.mask = np.ones_like(self.M, dtype=bool)
+        for row, col in enumerate(self.seam_history[-1]):
+            self.mask[row, col] = False
+        mask_3d = np.stack([self.mask] * 3, axis=2)
+        self.resized_rgb = self.resized_rgb[mask_3d].reshape(self.h, self.w - 1, 3)
+        self.resized_gs = self.rgb_to_grayscale(self.resized_rgb)
+        self.update_ref_mat()
+        self.w -= 1
 
     # @NI_decor
     def seams_addition(self, num_add: int):
@@ -311,7 +336,7 @@ class VerticalSeamImage(SeamImage):
 
     # @NI_decor
     @staticmethod
-    # @jit(nopython=True)
+    @jit(nopython=True)
     def calc_bt_mat(M, E, backtrack_mat):
         """ Fills the BT back-tracking index matrix. This function is static in order to support Numba. To use it, uncomment the decorator above.
 
@@ -322,8 +347,25 @@ class VerticalSeamImage(SeamImage):
         Guidelines & hints:
             np.ndarray is a rederence type. changing it here may affected outsde.
         """
-        raise NotImplementedError("TODO: Implement SeamImage.calc_bt_mat")
         h, w = M.shape
+        # Initialize the backtrack matrix with -1
+        backtrack_mat.fill(-1)
+
+        for i in range(1, h):
+            for j in range(w):
+                # Determine the path from which the current pixel was reached in the minimum cost path
+                if j == 0:
+                    min_index = j if M[i - 1, j] < M[i - 1, j + 1] else j + 1
+                elif j == w - 1:
+                    min_index = j if M[i - 1, j] < M[i - 1, j - 1] else j - 1
+                else:
+                    min_index = j
+                    if M[i - 1, j - 1] < M[i - 1, min_index]:
+                        min_index = j - 1
+                    if M[i - 1, j + 1] < M[i - 1, min_index]:
+                        min_index = j + 1
+
+                backtrack_mat[i, j] = min_index
 
 
 class SCWithObjRemoval(VerticalSeamImage):
