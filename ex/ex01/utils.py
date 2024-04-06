@@ -218,6 +218,9 @@ class VerticalSeamImage(SeamImage):
             - removing seams couple of times (call the function more than once)
             - visualize the original image with removed seams marked (for comparison)
         """
+
+
+        
         raise NotImplementedError("TODO: Implement SeamImage.seams_removal")
 
     def paint_seams(self):
