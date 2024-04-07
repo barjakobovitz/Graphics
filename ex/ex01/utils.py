@@ -395,7 +395,12 @@ class SCWithObjRemoval(VerticalSeamImage):
             Guidelines & hints:
                 - for every active mask we need make it binary: {0,1}
         """
-        raise NotImplementedError("TODO: Implement SeamImage.preprocess_masks")
+        for mask_name, mask in self.obj_masks.items():
+            if mask_name in self.active_masks:
+                # Binarize the mask
+                binary_mask = (mask > 0).astype(np.uint8)
+                self.obj_masks[mask_name] = binary_mask
+
         print('Active masks:', self.active_masks)
 
     # @NI_decor
