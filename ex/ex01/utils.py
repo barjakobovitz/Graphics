@@ -397,7 +397,6 @@ class SCWithObjRemoval(VerticalSeamImage):
         """
         for mask_name, mask in self.obj_masks.items():
             if mask_name in self.active_masks:
-                # Binarize the mask
                 binary_mask = (mask > 0).astype(np.uint8)
                 self.obj_masks[mask_name] = binary_mask
 
@@ -411,12 +410,15 @@ class SCWithObjRemoval(VerticalSeamImage):
                 - you need to apply the masks on other matrices!
                 - think how to force seams to pass through a mask's object..
         """
-        raise NotImplementedError("TODO: Implement SeamImage.apply_mask")
+        for mask_name, mask in self.obj_masks.items():
+            if mask_name in self.active_masks:
+                self.E[mask == 1] = -200
+
 
     def init_mats(self):
         self.E = self.calc_gradient_magnitude()
-        self.M = self.calc_M()
         self.apply_mask()  # -> added
+        self.M = self.calc_M()
         self.backtrack_mat = np.zeros_like(self.M, dtype=int)
         self.mask = np.ones_like(self.M, dtype=bool)
 
@@ -443,7 +445,15 @@ def scale_to_shape(orig_shape: np.ndarray, scale_factors: list):
     Returns
         the new shape
     """
-    raise NotImplementedError("TODO: Implement scale_to_shape")
+    # Ensure the scale_factors list has exactly two elements: one for y and one for x
+    if len(scale_factors) != 2:
+        raise ValueError("scale_factors must contain exactly two elements.")
+    
+    # Calculate the new shape by multiplying the original dimensions by their corresponding scale factors
+    new_shape = orig_shape * scale_factors
+    
+    # Return the new shape as an integer array
+    return new_shape.astype(int)
 
 
 def resize_seam_carving(seam_img: SeamImage, shapes: np.ndarray):
@@ -456,7 +466,16 @@ def resize_seam_carving(seam_img: SeamImage, shapes: np.ndarray):
     Returns
         the resized rgb image
     """
-    raise NotImplementedError("TODO: Implement resize_seam_carving")
+    verticalDiff=shapes[0][1]-shapes[1][1]
+    horizontalDiff=shapes[0][0]-shapes[1][0]
+    seam_img.reinit()
+    seam_img.seams_removal_vertical(np.abs(verticalDiff))
+    seam_img.seams_removal_horizontal(np.abs(horizontalDiff))
+    
+    return seam_img.resized_rgb
+
+    return seam_img
+
 
 
 def bilinear(image, new_shape):
