@@ -66,6 +66,7 @@ class PointLight(LightSource):
     def get_intensity(self, intersection):
         d = self.get_distance_from_light(intersection)
         return self.intensity / (self.kc + self.kl*d + self.kq * (d**2))
+    
 
 
 class SpotLight(LightSource):
@@ -111,6 +112,11 @@ class Ray:
         nearest_object = None
         min_distance = np.inf
         #TODO
+        for obj in objects:
+            distance = obj.intersect(self)
+            if distance is not None and distance < min_distance:
+                min_distance = distance
+                nearest_object = obj
         return nearest_object, min_distance
 
 
