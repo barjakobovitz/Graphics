@@ -162,11 +162,26 @@ class Triangle(Object3D):
     # computes normal to the trainagle surface. Pay attention to its direction!
     def compute_normal(self):
         # TODO
-        pass
+        ab = self.b - self.a
+        ac = self.c - self.a
+        return np.cross(ab, ac)
 
-    def intersect(self, ray: Ray):
-        # TODO
-        pass
+    def intersect(self, ray):
+            A = np.column_stack((self.a - self.b, self.a - self.c, -ray.direction))
+            b = ray.origin - self.a 
+            try:
+                # Solving the system using numpy's linear algebra solver
+                u, v, t = np.linalg.solve(A, b)
+            except np.linalg.LinAlgError:
+                # This occurs if the matrix A is singular, i.e., no solution
+                return None
+
+            # Check if the solution is within the bounds of the triangle and ray is pointing towards it
+            if u >= 0 and v >= 0 and (u + v) <= 1 and t >= 0:
+                intersection_point = ray.origin + t * ray.direction
+                return (intersection_point, t)
+            else:
+                return None
 
 class Pyramid(Object3D):
     """     
