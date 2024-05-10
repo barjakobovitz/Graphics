@@ -230,7 +230,8 @@ A /&&&&&&&&&&&&&&&&&&&&\ B &&&/ C
 
     def apply_materials_to_triangles(self):
         # TODO
-        pass
+        for triangle in self.triangle_list:
+            triangle.set_material(self.ambient, self.diffuse, self.specular, self.shininess, self.reflection)
 
     def intersect(self, ray: Ray):
         # TODO
