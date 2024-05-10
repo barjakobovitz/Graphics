@@ -11,6 +11,8 @@ def normalize(vector):
 def reflected(vector, axis):
     # TODO:
     v = np.array([0,0,0])
+    dot_product = np.dot(vector, axis)
+    v = vector - 2 * dot_product * axis
     return v
 
 ## Lights
