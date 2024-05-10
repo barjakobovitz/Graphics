@@ -179,7 +179,7 @@ class Triangle(Object3D):
             # Check if the solution is within the bounds of the triangle and ray is pointing towards it
             if u >= 0 and v >= 0 and (u + v) <= 1 and t >= 0:
                 intersection_point = ray.origin + t * ray.direction
-                return (intersection_point, t)
+                return t,intersection_point
             else:
                 return None
 
@@ -223,6 +223,9 @@ A /&&&&&&&&&&&&&&&&&&&&\ B &&&/ C
                  [4,2,1],
                  [2,4,0]]
         # TODO
+        for idx in t_idx:
+        # Assume Triangle takes three vertices as its parameters
+            l.append(Triangle(self.v_list[idx[0]], self.v_list[idx[1]], self.v_list[idx[2]]))
         return l
 
     def apply_materials_to_triangles(self):
@@ -231,7 +234,20 @@ A /&&&&&&&&&&&&&&&&&&&&\ B &&&/ C
 
     def intersect(self, ray: Ray):
         # TODO
-        pass
+        closest_intersection = None  # Store the closest intersection distance
+        closest_point = None         # Store the closest intersection point
+
+        for triangle in self.triangle_list:
+            intersection = triangle.intersect(ray)  # Assuming intersect method returns (distance, point) or None
+            if intersection is not None:
+                distance, point = intersection
+                # Update if this is the first intersection or closer than the previous one
+                if closest_intersection is None or distance < closest_intersection:
+                    closest_intersection = distance
+                    closest_point = point
+
+        # Return the closest intersection point and distance, if any
+        return closest_intersection, closest_point
 
 class Sphere(Object3D):
     def __init__(self, center, radius: float):
@@ -240,5 +256,33 @@ class Sphere(Object3D):
 
     def intersect(self, ray: Ray):
         #TODO
-        pass
+        # Vector from the ray origin to the sphere center
+        L = self.center - ray.origin
+        
+        # Coefficients of the quadratic equation
+        A = np.dot(ray.direction, ray.direction)
+        B = 2 * np.dot(ray.direction, L)
+        C = np.dot(L, L) - self.radius**2
+        
+        # Discriminant
+        D = B**2 - 4 * A * C
+        
+        if D < 0:
+            return None  # No intersection
+        else:
+            # Calculate potential solutions
+            sqrt_D = np.sqrt(D)
+            t1 = (-B + sqrt_D) / (2 * A)
+            t2 = (-B - sqrt_D) / (2 * A)
+
+            # Filter out negative values, as they represent intersections behind the ray's origin
+            t = np.array([t for t in [t1, t2] if t >= 0])
+            if t.size == 0:
+                return None  # No positive t, meaning all intersections are behind the origin
+
+            # Find the closest intersection
+            t_closest = np.min(t)
+            point_closest = ray.origin + t_closest * ray.direction
+            
+            return t_closest, point_closest
 
