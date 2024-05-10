@@ -28,21 +28,22 @@ class DirectionalLight(LightSource):
     def __init__(self, intensity, direction):
         super().__init__(intensity)
         # TODO
+        self.direction = normalize(np.array(direction)) 
 
     # This function returns the ray that goes from the light source to a point
     def get_light_ray(self,intersection_point):
         # TODO
-        return Ray()
+        return Ray(intersection_point,-self.direction)
 
     # This function returns the distance from a point to the light source
     def get_distance_from_light(self, intersection):
         #TODO
-        pass
+        return np.inf
 
     # This function returns the light intensity at a point
     def get_intensity(self, intersection):
         #TODO
-        pass
+        return self.intensity
 
 
 class PointLight(LightSource):
