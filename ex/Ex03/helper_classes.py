@@ -113,7 +113,7 @@ class Ray:
         min_distance = np.inf
         #TODO
         for obj in objects:
-            distance = obj.intersect(self)
+            distance,obj = obj.intersect(self)
             if distance is not None and distance < min_distance:
                 min_distance = distance
                 nearest_object = obj
@@ -121,16 +121,21 @@ class Ray:
 
 
 class Object3D:
-    def set_material(self, ambient, diffuse, specular, shininess, reflection):
-        self.ambient = ambient
-        self.diffuse = diffuse
-        self.specular = specular
-        self.shininess = shininess
-        self.reflection = reflection
+    def __init__(self):
+        self.material = None
 
+    def set_material(self, ambient, diffuse, specular, shininess, reflection):
+        self.material = {
+            'ambient': np.array(ambient),
+            'diffuse': np.array(diffuse),
+            'specular': np.array(specular),
+            'shininess': shininess,
+            'reflection': reflection
+        }
 
 class Plane(Object3D):
     def __init__(self, normal, point):
+        super().__init__()
         self.normal = np.array(normal)
         self.point = np.array(point)
 
@@ -138,9 +143,9 @@ class Plane(Object3D):
         v = self.point - ray.origin
         t = np.dot(v, self.normal) / (np.dot(self.normal, ray.direction) + 1e-6)
         if t > 0:
-            return t, self
+            return t,self
         else:
-            return None
+            return None,None
 
 
 class Triangle(Object3D):
@@ -174,14 +179,13 @@ class Triangle(Object3D):
                 u, v, t = np.linalg.solve(A, b)
             except np.linalg.LinAlgError:
                 # This occurs if the matrix A is singular, i.e., no solution
-                return None
+                return np.inf,None
 
             # Check if the solution is within the bounds of the triangle and ray is pointing towards it
             if u >= 0 and v >= 0 and (u + v) <= 1 and t >= 0:
-                intersection_point = ray.origin + t * ray.direction
-                return t,intersection_point
+                return t,self
             else:
-                return None
+                return np.inf,None
 
 class Pyramid(Object3D):
     """     
@@ -231,24 +235,23 @@ A /&&&&&&&&&&&&&&&&&&&&\ B &&&/ C
     def apply_materials_to_triangles(self):
         # TODO
         for triangle in self.triangle_list:
-            triangle.set_material(self.ambient, self.diffuse, self.specular, self.shininess, self.reflection)
+            triangle.set_material(self.material["ambient"], self.material["diffuse"], self.material["specular"], self.material["shininess"], self.material["reflection"])
 
     def intersect(self, ray: Ray):
         # TODO
         closest_intersection = None  # Store the closest intersection distance
-        closest_point = None         # Store the closest intersection point
+        closest_triangle = None     
 
         for triangle in self.triangle_list:
             intersection = triangle.intersect(ray)  # Assuming intersect method returns (distance, point) or None
             if intersection is not None:
-                distance, point = intersection
+                distance,obj = intersection
                 # Update if this is the first intersection or closer than the previous one
-                if closest_intersection is None or distance < closest_intersection:
+                if closest_intersection is None  or distance < closest_intersection:
                     closest_intersection = distance
-                    closest_point = point
 
         # Return the closest intersection point and distance, if any
-        return closest_intersection, closest_point
+        return closest_intersection, closest_triangle
 
 class Sphere(Object3D):
     def __init__(self, center, radius: float):
@@ -269,7 +272,7 @@ class Sphere(Object3D):
         D = B**2 - 4 * A * C
         
         if D < 0:
-            return None  # No intersection
+            return np.inf,None  # No intersection
         else:
             # Calculate potential solutions
             sqrt_D = np.sqrt(D)
@@ -279,11 +282,11 @@ class Sphere(Object3D):
             # Filter out negative values, as they represent intersections behind the ray's origin
             t = np.array([t for t in [t1, t2] if t >= 0])
             if t.size == 0:
-                return None  # No positive t, meaning all intersections are behind the origin
+                return np.inf,None  # No positive t, meaning all intersections are behind the origin
 
             # Find the closest intersection
             t_closest = np.min(t)
             point_closest = ray.origin + t_closest * ray.direction
             
-            return t_closest, point_closest
+            return t_closest,self
 
