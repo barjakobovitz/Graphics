@@ -25,11 +25,11 @@ class DirectionalLight(LightSource):
 
     def __init__(self, intensity, direction):
         super().__init__(intensity)
-        self.direction = normalize(np.array(direction))
+        self.direction = direction
 
     # This function returns the ray that goes from the light source to a point
     def get_light_ray(self, intersection_point):
-        return Ray(intersection_point, -self.direction)
+        return Ray(intersection_point, normalize(-self.direction))
 
     # This function returns the distance from a point to the light source
     def get_distance_from_light(self, intersection):
@@ -73,19 +73,25 @@ class SpotLight(LightSource):
 
     # This function returns the ray that goes from a point to the light source
     def get_light_ray(self, intersection):
-        return Ray(self.position, normalize(intersection - self.position))
+        return Ray(intersection, normalize(-self.direction))
 
     def get_distance_from_light(self, intersection):
         return np.linalg.norm(intersection - self.position)
 
     def get_intensity(self, intersection):
+        distance_from_light = self.get_distance_from_light(intersection)
         direction_to_point = normalize(intersection - self.position)
         dot_product = np.dot(direction_to_point, self.direction)
-        if dot_product < 0:  # Light does not reach the point if the angle is obtuse
-            return 0
-        d = self.get_distance_from_light(intersection)
-        intensity_at_intersection = self.intensity * dot_product / (self.kc + self.kl * d + self.kq * d ** 2)
-        return intensity_at_intersection
+        return self.intensity * dot_product / (
+                    self.kc + self.kl * distance_from_light + self.kq * (distance_from_light ** 2))
+
+        # direction_to_point = normalize(intersection - self.position)
+        # dot_product = np.dot(direction_to_point, self.direction)
+        # if dot_product < 0:  # Light does not reach the point if the angle is obtuse
+        #     return 0
+        # d = self.get_distance_from_light(intersection)
+        # intensity_at_intersection = self.intensity * dot_product / (self.kc + self.kl * d + self.kq * d ** 2)
+        # return intensity_at_intersection
 
 
 class Ray:
@@ -98,12 +104,16 @@ class Ray:
     def nearest_intersected_object(self, objects):
         nearest_object = None
         min_distance = np.inf
+        intersection_point = None
         for obj in objects:
-            distance, temp_obj = obj.intersect(self)
-            if distance is not None and distance < min_distance:
-                min_distance = distance
-                nearest_object = temp_obj
-        return nearest_object, min_distance
+            t, _ = obj.intersect(self)
+            if t is not None:
+                distance = np.linalg.norm(self.origin + t * self.direction - self.origin)
+                if distance < min_distance:
+                    min_distance = distance
+                    nearest_object = obj
+                    intersection_point = self.origin + t * self.direction
+        return nearest_object, min_distance, intersection_point
 
 
 class Object3D:
@@ -112,9 +122,9 @@ class Object3D:
 
     def set_material(self, ambient, diffuse, specular, shininess, reflection):
         self.material = {
-            'ambient': np.array(ambient),  ## Ka
-            'diffuse': np.array(diffuse),  ## Kd
-            'specular': np.array(specular),  ## Ks
+            'ambient': ambient,  ## Ka
+            'diffuse': diffuse,  ## Kd
+            'specular': specular,  ## Ks
             'shininess': shininess,  ## n
             'reflection': reflection  ## Kr
         }
@@ -123,12 +133,13 @@ class Object3D:
 class Plane(Object3D):
     def __init__(self, normal, point):
         super().__init__()
-        self.normal = np.array(normal)
+        self.normal = normalize(np.array(normal))
         self.point = np.array(point)
 
     def intersect(self, ray: Ray):
+        epsilon = 1e-6
         v = self.point - ray.origin
-        t = np.dot(v, self.normal) / (np.dot(self.normal, ray.direction) + 1e-6)
+        t = np.dot(v, self.normal) / (np.dot(self.normal, ray.direction) + epsilon)
         if t > 0:
             return t, self
         else:
@@ -156,10 +167,12 @@ class Triangle(Object3D):
     def compute_normal(self):
         ab = self.b - self.a
         ac = self.c - self.a
-        return np.cross(ab, ac)
+        return normalize(np.cross(ab, ac))
 
     def intersect(self, ray):
-        A = np.column_stack((self.a - self.b, self.a - self.c, -ray.direction))
+        ab = self.b - self.a
+        ac = self.c - self.a
+        A = np.column_stack((ab, ac, -ray.direction))
         b = ray.origin - self.a
         try:
             # Solving the system using numpy's linear algebra solver
@@ -226,19 +239,25 @@ A /&&&&&&&&&&&&&&&&&&&&\ B &&&/ C
                                   self.material["shininess"], self.material["reflection"])
 
     def intersect(self, ray: Ray):
-        closest_intersection = None  # Store the closest intersection distance
+        min_distance = np.inf  # Store the closest intersection distance
         closest_triangle = None
+        min_t = np.inf
 
         for triangle in self.triangle_list:
             intersection = triangle.intersect(ray)  # Assuming intersect method returns (distance, point) or None
             if intersection is not None:
-                distance, obj = intersection
+                t, obj = intersection
+                distance = np.linalg.norm(ray.origin + t * ray.direction - ray.origin)
                 # Update if this is the first intersection or closer than the previous one
-                if closest_intersection is None or distance < closest_intersection:
-                    closest_intersection = distance
+                if distance < min_distance:
+                    min_distance = distance
+                    min_t = t
+                    closest_triangle = obj
 
         # Return the closest intersection point and distance, if any
-        return closest_intersection, closest_triangle
+        if closest_triangle is None:
+            return np.inf, None
+        return min_t, closest_triangle
 
 
 class Sphere(Object3D):
@@ -248,12 +267,12 @@ class Sphere(Object3D):
 
     def intersect(self, ray: Ray):
         # Vector from the ray origin to the sphere center
-        L = self.center - ray.origin
+        L = ray.origin - self.center
 
         # Coefficients of the quadratic equation
         A = np.dot(ray.direction, ray.direction)
         B = 2 * np.dot(ray.direction, L)
-        C = np.dot(L, L) - self.radius ** 2
+        C = np.dot(L, L) - (self.radius ** 2)
 
         # Discriminant
         D = B ** 2 - 4 * A * C
@@ -273,6 +292,5 @@ class Sphere(Object3D):
 
             # Find the closest intersection
             t_closest = np.min(t)
-            point_closest = ray.origin + t_closest * ray.direction
 
             return t_closest, self
