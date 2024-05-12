@@ -1,6 +1,7 @@
 from helper_classes import *
 import matplotlib.pyplot as plt
 
+
 def render_scene(camera, ambient, lights, objects, screen_size, max_depth):
     width, height = screen_size
     ratio = float(width) / height
@@ -20,15 +21,7 @@ def render_scene(camera, ambient, lights, objects, screen_size, max_depth):
 
             # This is the main loop where each pixel color is computed.
             # TODO
-
-            nearest_object, min_distance = ray.nearest_intersected_object(objects)
-            if nearest_object is None:
-                color = np.zeros(3)
-            
-
-
-
-            
+            color = recursive_color(ray, 0, max_depth, objects, lights, camera, ambient)
             # We clip the values between 0 and 1 so all pixel values will make sense.
             image[i, j] = np.clip(color,0,1)
 

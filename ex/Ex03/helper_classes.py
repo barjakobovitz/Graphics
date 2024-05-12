@@ -146,6 +146,8 @@ class Plane(Object3D):
             return t,self
         else:
             return None,None
+    def get_normal(self,point):
+        return self.normal
 
 
 class Triangle(Object3D):
@@ -289,4 +291,9 @@ class Sphere(Object3D):
             point_closest = ray.origin + t_closest * ray.direction
             
             return t_closest,self
+        
+
+
+
+
 
