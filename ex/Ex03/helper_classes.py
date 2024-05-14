@@ -1,9 +1,14 @@
 import numpy as np
 
+epsilon = 1e-6
+
 
 # This function gets a vector and returns its normalized form.
 def normalize(vector):
-    return vector / np.linalg.norm(vector)
+    norm = np.linalg.norm(vector)
+    if norm == 0:
+        return np.zeros(3)
+    return vector / norm
 
 
 # This function gets a vector and the normal of the surface it hit
@@ -59,7 +64,7 @@ class PointLight(LightSource):
     # This function returns the light intensity at a point
     def get_intensity(self, intersection):
         d = self.get_distance_from_light(intersection)
-        return self.intensity / (self.kc + self.kl * d + self.kq * (d ** 2))
+        return self.intensity / max((self.kc + self.kl * d + self.kq * (d ** 2)), epsilon)
 
 
 class SpotLight(LightSource):
@@ -81,17 +86,9 @@ class SpotLight(LightSource):
     def get_intensity(self, intersection):
         distance_from_light = self.get_distance_from_light(intersection)
         direction_to_point = normalize(intersection - self.position)
-        dot_product = np.dot(direction_to_point, self.direction)
-        return self.intensity * dot_product / (
-                    self.kc + self.kl * distance_from_light + self.kq * (distance_from_light ** 2))
-
-        # direction_to_point = normalize(intersection - self.position)
-        # dot_product = np.dot(direction_to_point, self.direction)
-        # if dot_product < 0:  # Light does not reach the point if the angle is obtuse
-        #     return 0
-        # d = self.get_distance_from_light(intersection)
-        # intensity_at_intersection = self.intensity * dot_product / (self.kc + self.kl * d + self.kq * d ** 2)
-        # return intensity_at_intersection
+        dot_product = max(np.dot(direction_to_point, self.direction), 0) ** 2
+        denominator = (self.kc + self.kl * distance_from_light + self.kq * (distance_from_light ** 2))
+        return self.intensity * dot_product / denominator if denominator > epsilon else 0
 
 
 class Ray:
@@ -102,17 +99,20 @@ class Ray:
     # The function is getting the collection of objects in the scene and looks for the one with minimum distance.
     # The function should return the nearest object and its distance (in two different arguments)
     def nearest_intersected_object(self, objects):
+        intersection_point = None
         nearest_object = None
         min_distance = np.inf
-        intersection_point = None
+        min_t = np.inf
+
         for obj in objects:
             t, _ = obj.intersect(self)
-            if t is not None:
-                distance = np.linalg.norm(self.origin + t * self.direction - self.origin)
-                if distance < min_distance:
-                    min_distance = distance
-                    nearest_object = obj
-                    intersection_point = self.origin + t * self.direction
+            if t is not None and t < min_t:
+                min_t = t
+                nearest_object = obj
+                intersection_point = self.origin + t * self.direction
+                min_distance = np.linalg.norm(intersection_point - self.origin)
+        if nearest_object is None:
+            return None, np.inf, None
         return nearest_object, min_distance, intersection_point
 
 
@@ -137,9 +137,11 @@ class Plane(Object3D):
         self.point = np.array(point)
 
     def intersect(self, ray: Ray):
-        epsilon = 1e-6
+        denominator = np.dot(self.normal, ray.direction)
+        if abs(denominator) < epsilon:
+            return np.inf, None
         v = self.point - ray.origin
-        t = np.dot(v, self.normal) / (np.dot(self.normal, ray.direction) + epsilon)
+        t = np.dot(v, self.normal) / denominator
         if t > 0:
             return t, self
         else:
@@ -147,15 +149,15 @@ class Plane(Object3D):
 
 
 class Triangle(Object3D):
-    """
-        C
-        /\
-       /  \
-    A /____\ B
-
-    The fornt face of the triangle is A -> B -> C.
-
-    """
+    # """
+    #     C
+    #     /\
+    #    /  \
+    # A /____\ B
+    #
+    # The fornt face of the triangle is A -> B -> C.
+    #
+    # """
 
     def __init__(self, a, b, c):
         self.a = np.array(a)
@@ -173,47 +175,48 @@ class Triangle(Object3D):
         ab = self.b - self.a
         ac = self.c - self.a
         A = np.column_stack((ab, ac, -ray.direction))
+        if np.linalg.det(A) == 0:
+            return np.inf, None
         b = ray.origin - self.a
         try:
             # Solving the system using numpy's linear algebra solver
             u, v, t = np.linalg.solve(A, b)
+            # Check if the solution is within the bounds of the triangle and ray is pointing towards it
+            if 0 <= u <= 1 and 0 <= v <= 1 and (u + v) <= 1 and t > epsilon:
+                return t, self
+            else:
+                return np.inf, None
         except np.linalg.LinAlgError:
             # This occurs if the matrix A is singular, i.e., no solution
             return np.inf, None
 
-        # Check if the solution is within the bounds of the triangle and ray is pointing towards it
-        if u >= 0 and v >= 0 and (u + v) <= 1 and t >= 0:
-            return t, self
-        else:
-            return np.inf, None
-
 
 class Pyramid(Object3D):
-    """
-            D
-            /\*\
-           /==\**\
-         /======\***\
-       /==========\***\
-     /==============\****\
-   /==================\*****\
-A /&&&&&&&&&&&&&&&&&&&&\ B &&&/ C
-   \==================/****/
-     \==============/****/
-       \==========/****/
-         \======/***/
-           \==/**/
-            \/*/
-             E
-
-    Similar to Traingle, every from face of the diamond's faces are:
-        A -> B -> D
-        B -> C -> D
-        A -> C -> B
-        E -> B -> A
-        E -> C -> B
-        C -> E -> A
-    """
+    #     """
+    #             D
+    #             /\*\
+    #            /==\**\
+    #          /======\***\
+    #        /==========\***\
+    #      /==============\****\
+    #    /==================\*****\
+    # A /&&&&&&&&&&&&&&&&&&&&\ B &&&/ C
+    #    \==================/****/
+    #      \==============/****/
+    #        \==========/****/
+    #          \======/***/
+    #            \==/**/
+    #             \/*/
+    #              E
+    #
+    #     Similar to Traingle, every from face of the diamond's faces are:
+    #         A -> B -> D
+    #         B -> C -> D
+    #         A -> C -> B
+    #         E -> B -> A
+    #         E -> C -> B
+    #         C -> E -> A
+    #     """
 
     def __init__(self, v_list):
         self.v_list = v_list
@@ -239,25 +242,17 @@ A /&&&&&&&&&&&&&&&&&&&&\ B &&&/ C
                                   self.material["shininess"], self.material["reflection"])
 
     def intersect(self, ray: Ray):
-        min_distance = np.inf  # Store the closest intersection distance
-        closest_triangle = None
         min_t = np.inf
+        intersect_triangle = None
 
         for triangle in self.triangle_list:
-            intersection = triangle.intersect(ray)  # Assuming intersect method returns (distance, point) or None
-            if intersection is not None:
-                t, obj = intersection
-                distance = np.linalg.norm(ray.origin + t * ray.direction - ray.origin)
-                # Update if this is the first intersection or closer than the previous one
-                if distance < min_distance:
-                    min_distance = distance
-                    min_t = t
-                    closest_triangle = obj
-
-        # Return the closest intersection point and distance, if any
-        if closest_triangle is None:
+            t, obj = triangle.intersect(ray)
+            if t < min_t:
+                min_t = t
+                intersect_triangle = obj
+        if intersect_triangle is None:
             return np.inf, None
-        return min_t, closest_triangle
+        return min_t, intersect_triangle
 
 
 class Sphere(Object3D):
