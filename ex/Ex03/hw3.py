@@ -49,9 +49,9 @@ def is_in_shadow(objects, light, intersection_point):
     shadow_ray = Ray(biased_intersection, direction_to_light)
     shadow_distance = light.get_distance_from_light(intersection_point)
     nearest_object, min_t, _ = shadow_ray.nearest_intersected_object(objects)
-    if nearest_object is not None and min_t < shadow_distance:
-        return False
-    return True
+    if nearest_object is None or min_t >= shadow_distance:
+        return True
+    return False
 
 
 def get_diffuse_light(light, material, normal, intersection_point):
@@ -86,12 +86,7 @@ def render_scene(camera, ambient, lights, objects, screen_size, max_depth):
             direction = normalize(pixel - origin)
             ray = Ray(origin, direction)
 
-            nearest_object, _, _ = ray.nearest_intersected_object(objects)
-            if nearest_object is None:
-                color = np.zeros(3)
-            else:
-                color = get_color(scene, ray, 1, max_depth)
-
+            color = get_color(scene, ray, 1, max_depth)
             # We clip the values between 0 and 1 so all pixel values will make sense.
             image[i, j] = np.clip(color, 0, 1)
 
