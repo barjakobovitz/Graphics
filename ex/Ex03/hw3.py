@@ -67,7 +67,7 @@ def get_specular_light(light, material, normal, intersection_point, ray):
     direction_reflected = reflected(direction_to_light, normal)
     specular = np.dot(direction_reflected, direction_to_camera)
     light_intensity = light.get_intensity(intersection_point)
-    return material['specular'] * light_intensity * max(specular, 0) ** material['shininess']
+    return material['specular'] * light_intensity * specular ** material['shininess']
 
 
 def render_scene(camera, ambient, lights, objects, screen_size, max_depth):
