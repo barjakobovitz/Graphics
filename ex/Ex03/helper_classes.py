@@ -15,7 +15,7 @@ def normalize(vector):
 # This function returns the vector that reflects from the surface
 def reflected(vector, axis):
     dot_product = np.dot(vector, axis)
-    return vector - 2 * dot_product * axis
+    return normalize(vector - 2 * dot_product * axis)
 
 
 ## Lights
@@ -34,7 +34,7 @@ class DirectionalLight(LightSource):
 
     # This function returns the ray that goes from the light source to a point
     def get_light_ray(self, intersection_point):
-        return Ray(intersection_point, normalize(-self.direction))
+        return Ray(intersection_point, normalize(self.direction))
 
     # This function returns the distance from a point to the light source
     def get_distance_from_light(self, intersection):
@@ -64,7 +64,7 @@ class PointLight(LightSource):
     # This function returns the light intensity at a point
     def get_intensity(self, intersection):
         d = self.get_distance_from_light(intersection)
-        return self.intensity / max((self.kc + self.kl * d + self.kq * (d ** 2)), epsilon)
+        return self.intensity / (self.kc + self.kl * d + self.kq * (d ** 2))
 
 
 class SpotLight(LightSource):
@@ -94,7 +94,7 @@ class SpotLight(LightSource):
 class Ray:
     def __init__(self, origin, direction):
         self.origin = origin
-        self.direction = direction
+        self.direction = normalize(direction)
 
     # The function is getting the collection of objects in the scene and looks for the one with minimum distance.
     # The function should return the nearest object and its distance (in two different arguments)
@@ -110,7 +110,7 @@ class Ray:
                 min_t = t
                 nearest_object = obj
                 intersection_point = self.origin + t * self.direction
-                min_distance = np.linalg.norm(intersection_point - self.origin)
+                min_distance = np.linalg.norm(self.origin-intersection_point )
         if nearest_object is None:
             return None, np.inf, None
         return nearest_object, min_distance, intersection_point
@@ -182,7 +182,7 @@ class Triangle(Object3D):
             # Solving the system using numpy's linear algebra solver
             u, v, t = np.linalg.solve(A, b)
             # Check if the solution is within the bounds of the triangle and ray is pointing towards it
-            if 0 <= u <= 1 and 0 <= v <= 1 and (u + v) <= 1 and t > epsilon:
+            if epsilon <= u <= 1 and epsilon <= v <= 1 and (u + v) <= 1 and t > epsilon:
                 return t, self
             else:
                 return np.inf, None
