@@ -14,6 +14,7 @@ def reflected(vector, axis):
     return normalize(vector - 2 * np.dot(vector, axis) * axis)
 
 
+
 ## Lights
 
 class LightSource:
@@ -30,6 +31,7 @@ class DirectionalLight(LightSource):
     # This function returns the ray that goes from the light source to a point
     def get_light_ray(self, intersection_point):
         return Ray(intersection_point, (-1) * self.direction)
+
 
     # This function returns the distance from a point to the light source
     def get_distance_from_light(self, intersection):
@@ -89,7 +91,7 @@ class SpotLight(LightSource):
 class Ray:
     def __init__(self, origin, direction):
         self.origin = origin
-        self.direction = direction
+        self.direction = normalize(direction)
 
     # The function is getting the collection of objects in the scene and looks for the one with minimum distance.
     # The function should return the nearest object and its distance (in two different arguments)
@@ -105,6 +107,7 @@ class Ray:
                 nearest_object = intersected_object
                 intersection_point = self.origin + t * self.direction
         return nearest_object, min_t, intersection_point
+
 
 
 class Object3D:
@@ -172,7 +175,7 @@ class Triangle(Object3D):
             # Solving the system using numpy's linear algebra solver
             u, v, t = np.linalg.solve(A, b)
             # Check if the solution is within the bounds of the triangle and ray is pointing towards it
-            if 0 <= u <= 1 and 0 <= v <= 1 and (u + v) <= 1 and t > epsilon:
+            if epsilon <= u <= 1 and epsilon <= v <= 1 and (u + v) <= 1 and t > epsilon:
                 return t, self
             else:
                 return None, None
