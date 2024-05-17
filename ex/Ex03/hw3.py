@@ -24,14 +24,13 @@ def get_color(scene, ray, depth, max_depth):
 
     if not is_in_shadow:
         color += get_ambient_light(scene["ambient"], nearest_object.material)
+
     if depth + 1 > max_depth:
         return color
 
     reflected_ray = Ray(intersection_point, normalize(reflected(ray.direction, normal)))
     reflected_color = get_color(scene, reflected_ray, depth + 1, max_depth)
-    reflected_object, _, _ = reflected_ray.nearest_intersected_object(scene["objects"])
-    if reflected_object is not None:
-        color += reflected_object.material['reflection'] * reflected_color
+    color += nearest_object.material['reflection'] * reflected_color
 
     return color
 
