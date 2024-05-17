@@ -248,23 +248,6 @@ class Sphere(Object3D):
         self.radius = radius
 
     def intersect(self, ray: Ray):
-        # a = np.dot(ray.direction, ray.direction)
-        # b = 2 * np.dot(ray.direction, ray.origin - self.center)
-        # c = np.dot(ray.origin - self.center, ray.origin - self.center) - self.radius ** 2
-        # discriminant = b ** 2 - 4 * a * c
-        # if discriminant < 0:
-        #     return None, None
-        # t1 = (-b + np.sqrt(discriminant)) / (2 * a)
-        # t2 = (-b - np.sqrt(discriminant)) / (2 * a)
-        # if t1 < 1e-8 and t2 < 1e-8:
-        #     return None, None
-        # if t1 < 1e-8:
-        #     return t2, self
-        # if t2 < 1e-8:
-        #     return t1, self
-        # return min(t1, t2), self
-
-        # Vector from the ray origin to the sphere center
         L = ray.origin - self.center
 
         # Coefficients of the quadratic equation
