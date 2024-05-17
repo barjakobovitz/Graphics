@@ -5,21 +5,16 @@ epsilon = 1e-6
 
 # This function gets a vector and returns its normalized form.
 def normalize(vector):
-    norm = np.linalg.norm(vector)
-    if norm == 0:
-        return np.zeros(3)
-    return vector / norm
+    return vector / np.linalg.norm(vector)
 
 
 # This function gets a vector and the normal of the surface it hit
 # This function returns the vector that reflects from the surface
 def reflected(vector, axis):
-    dot_product = np.dot(vector, axis)
-    return vector - 2 * dot_product * axis
+    return normalize(vector - 2 * np.dot(vector, axis) * axis)
 
 
 ## Lights
-
 
 class LightSource:
     def __init__(self, intensity):
@@ -30,11 +25,11 @@ class DirectionalLight(LightSource):
 
     def __init__(self, intensity, direction):
         super().__init__(intensity)
-        self.direction = direction
+        self.direction = normalize(direction)
 
     # This function returns the ray that goes from the light source to a point
     def get_light_ray(self, intersection_point):
-        return Ray(intersection_point, normalize(-self.direction))
+        return Ray(intersection_point, (-1) * self.direction)
 
     # This function returns the distance from a point to the light source
     def get_distance_from_light(self, intersection):
@@ -64,21 +59,21 @@ class PointLight(LightSource):
     # This function returns the light intensity at a point
     def get_intensity(self, intersection):
         d = self.get_distance_from_light(intersection)
-        return self.intensity / max((self.kc + self.kl * d + self.kq * (d ** 2)), epsilon)
+        return self.intensity / (self.kc + self.kl * d + self.kq * (d ** 2))
 
 
 class SpotLight(LightSource):
     def __init__(self, intensity, position, direction, kc, kl, kq):
         super().__init__(intensity)
         self.position = np.array(position)
-        self.direction = normalize(np.array(direction))
+        self.direction = direction
         self.kc = kc
         self.kl = kl
         self.kq = kq
 
     # This function returns the ray that goes from a point to the light source
     def get_light_ray(self, intersection):
-        return Ray(intersection, normalize(-self.direction))
+        return Ray(intersection, normalize(self.position - self.direction))
 
     def get_distance_from_light(self, intersection):
         return np.linalg.norm(intersection - self.position)
@@ -86,9 +81,9 @@ class SpotLight(LightSource):
     def get_intensity(self, intersection):
         distance_from_light = self.get_distance_from_light(intersection)
         direction_to_point = normalize(intersection - self.position)
-        dot_product = max(np.dot(direction_to_point, self.direction), 0) ** 2
-        denominator = (self.kc + self.kl * distance_from_light + self.kq * (distance_from_light ** 2))
-        return self.intensity * dot_product / denominator if denominator > epsilon else 0
+        dot_product = np.dot(direction_to_point, normalize(self.direction))
+        return (self.intensity * dot_product) / (self.kc + self.kl * distance_from_light + self.kq *
+                                                 (distance_from_light ** 2))
 
 
 class Ray:
@@ -101,19 +96,15 @@ class Ray:
     def nearest_intersected_object(self, objects):
         intersection_point = None
         nearest_object = None
-        min_distance = np.inf
         min_t = np.inf
 
         for obj in objects:
-            t, _ = obj.intersect(self)
-            if t is not None and t < min_t:
+            t, intersected_object = obj.intersect(self)
+            if t is not None and min_t > t > epsilon:
                 min_t = t
-                nearest_object = obj
+                nearest_object = intersected_object
                 intersection_point = self.origin + t * self.direction
-                min_distance = np.linalg.norm(intersection_point - self.origin)
-        if nearest_object is None:
-            return None, np.inf, None
-        return nearest_object, min_distance, intersection_point
+        return nearest_object, min_t, intersection_point
 
 
 class Object3D:
@@ -133,19 +124,18 @@ class Object3D:
 class Plane(Object3D):
     def __init__(self, normal, point):
         super().__init__()
-        self.normal = normalize(np.array(normal))
+        self.normal = np.array(normal)
         self.point = np.array(point)
 
     def intersect(self, ray: Ray):
         denominator = np.dot(self.normal, ray.direction)
         if abs(denominator) < epsilon:
-            return np.inf, None
+            return None, None
         v = self.point - ray.origin
         t = np.dot(v, self.normal) / denominator
         if t > 0:
             return t, self
-        else:
-            return None, None
+        return None, None
 
 
 class Triangle(Object3D):
@@ -167,16 +157,16 @@ class Triangle(Object3D):
 
     # computes normal to the trainagle surface. Pay attention to its direction!
     def compute_normal(self):
-        ab = self.b - self.a
-        ac = self.c - self.a
-        return normalize(np.cross(ab, ac))
+        ba = self.a - self.b
+        bc = self.c - self.b
+        return normalize(np.cross(bc, ba))
 
     def intersect(self, ray):
         ab = self.b - self.a
         ac = self.c - self.a
         A = np.column_stack((ab, ac, -ray.direction))
         if np.linalg.det(A) == 0:
-            return np.inf, None
+            return None, None
         b = ray.origin - self.a
         try:
             # Solving the system using numpy's linear algebra solver
@@ -185,10 +175,10 @@ class Triangle(Object3D):
             if 0 <= u <= 1 and 0 <= v <= 1 and (u + v) <= 1 and t > epsilon:
                 return t, self
             else:
-                return np.inf, None
+                return None, None
         except np.linalg.LinAlgError:
             # This occurs if the matrix A is singular, i.e., no solution
-            return np.inf, None
+            return None, None
 
 
 class Pyramid(Object3D):
@@ -230,10 +220,13 @@ class Pyramid(Object3D):
             [0, 3, 2],
             [4, 1, 0],
             [4, 2, 1],
-            [2, 4, 0]]
+            [2, 4, 0]
+        ]
         for idx in t_idx:
-            # Assume Triangle takes three vertices as its parameters
-            l.append(Triangle(self.v_list[idx[0]], self.v_list[idx[1]], self.v_list[idx[2]]))
+            a = self.v_list[idx[0]]
+            b = self.v_list[idx[1]]
+            c = self.v_list[idx[2]]
+            l.append(Triangle(a, b, c))
         return l
 
     def apply_materials_to_triangles(self):
@@ -242,17 +235,11 @@ class Pyramid(Object3D):
                                   self.material["shininess"], self.material["reflection"])
 
     def intersect(self, ray: Ray):
-        min_t = np.inf
-        intersect_triangle = None
-
-        for triangle in self.triangle_list:
-            t, obj = triangle.intersect(ray)
-            if t < min_t:
-                min_t = t
-                intersect_triangle = obj
-        if intersect_triangle is None:
-            return np.inf, None
-        return min_t, intersect_triangle
+        intersection = ray.nearest_intersected_object(self.triangle_list)
+        if intersection is not None:
+            nearest_object, min_t, _ = intersection
+            return min_t, nearest_object
+        return None, None
 
 
 class Sphere(Object3D):
@@ -261,31 +248,42 @@ class Sphere(Object3D):
         self.radius = radius
 
     def intersect(self, ray: Ray):
+        # a = np.dot(ray.direction, ray.direction)
+        # b = 2 * np.dot(ray.direction, ray.origin - self.center)
+        # c = np.dot(ray.origin - self.center, ray.origin - self.center) - self.radius ** 2
+        # discriminant = b ** 2 - 4 * a * c
+        # if discriminant < 0:
+        #     return None, None
+        # t1 = (-b + np.sqrt(discriminant)) / (2 * a)
+        # t2 = (-b - np.sqrt(discriminant)) / (2 * a)
+        # if t1 < 1e-8 and t2 < 1e-8:
+        #     return None, None
+        # if t1 < 1e-8:
+        #     return t2, self
+        # if t2 < 1e-8:
+        #     return t1, self
+        # return min(t1, t2), self
+
         # Vector from the ray origin to the sphere center
         L = ray.origin - self.center
 
         # Coefficients of the quadratic equation
-        A = np.dot(ray.direction, ray.direction)
-        B = 2 * np.dot(ray.direction, L)
-        C = np.dot(L, L) - (self.radius ** 2)
+        a = np.dot(ray.direction, ray.direction)
+        b = 2 * np.dot(ray.direction, L)
+        c = np.dot(L, L) - (self.radius ** 2)
 
-        # Discriminant
-        D = B ** 2 - 4 * A * C
+        discriminant = b ** 2 - 4 * a * c
 
-        if D < 0:
-            return np.inf, None  # No intersection
-        else:
-            # Calculate potential solutions
-            sqrt_D = np.sqrt(D)
-            t1 = (-B + sqrt_D) / (2 * A)
-            t2 = (-B - sqrt_D) / (2 * A)
-
-            # Filter out negative values, as they represent intersections behind the ray's origin
-            t = np.array([t for t in [t1, t2] if t >= 0])
-            if t.size == 0:
-                return np.inf, None  # No positive t, meaning all intersections are behind the origin
-
-            # Find the closest intersection
-            t_closest = np.min(t)
-
-            return t_closest, self
+        if discriminant < 0:
+            return None, None  # No intersection
+        # Calculate potential solutions
+        sqrt_D = np.sqrt(discriminant)
+        t1 = (-b + sqrt_D) / (2 * a)
+        t2 = (-b - sqrt_D) / (2 * a)
+        if t1 < epsilon and t2 < epsilon:
+            return None, None
+        if t1 < epsilon:
+            return t2, self
+        if t2 < epsilon:
+            return t1, self
+        return min(t1, t2), self
