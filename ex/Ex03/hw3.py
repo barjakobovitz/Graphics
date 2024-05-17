@@ -3,37 +3,34 @@ import matplotlib.pyplot as plt
 
 
 def get_color(scene, ray, depth, max_depth):
-    if depth > max_depth:
-        return np.zeros(3)
-
-    nearest_object, min_t, intersection_point = ray.nearest_intersected_object(scene["objects"])
-    if nearest_object is None:
-        return np.zeros(3)
-
     color = np.zeros(3)
+    is_in_shadow = True
+    nearest_object, min_t, intersection_point = ray.nearest_intersected_object(scene["objects"])
 
-    # Ambient light
-    color += get_ambient_light(scene["ambient"], nearest_object.material)
+    if nearest_object is None:
+        return color
 
     normal = np.zeros(3)
-    if isinstance(nearest_object, Plane) or isinstance(nearest_object, Triangle):
+    if nearest_object.__class__.__name__ == "Plane" or nearest_object.__class__.__name__ == "Triangle":
         normal = nearest_object.normal
-    elif isinstance(nearest_object, Sphere):
+    elif nearest_object.__class__.__name__ == "Sphere":
         normal = normalize(intersection_point - nearest_object.center)
 
     for light in scene["lights"]:
-        if not is_in_shadow(scene["objects"], light, intersection_point):
-             color += get_diffuse_light(light, nearest_object.material, normal, intersection_point)
-             color += get_specular_light(light, nearest_object.material, normal, intersection_point, ray)
+        is_in_shadow = get_is_in_shadow(scene["objects"], light, intersection_point)
+        color += get_diffuse_light(light, nearest_object.material, normal, intersection_point) * (1 - is_in_shadow)
+        color += get_specular_light(light, nearest_object.material, normal, intersection_point, ray) * (
+                    1 - is_in_shadow)
+
+    if not is_in_shadow:
+        color += get_ambient_light(scene["ambient"], nearest_object.material)
 
     if depth + 1 > max_depth:
         return color
 
     reflected_ray = Ray(intersection_point, normalize(reflected(ray.direction, normal)))
     reflected_color = get_color(scene, reflected_ray, depth + 1, max_depth)
-    reflected_object, _, _ = reflected_ray.nearest_intersected_object(scene["objects"])
-    if reflected_object is not None:
-        color += reflected_object.material['reflection'] * reflected_color
+    color += nearest_object.material['reflection'] * reflected_color
 
     return color
 
@@ -42,37 +39,28 @@ def get_ambient_light(ambient, material):
     return ambient * material['ambient']
 
 
-def is_in_shadow(objects, light, intersection_point):
-    if isinstance(light, DirectionalLight):
-        direction_to_light = normalize(light.direction)
-    else:
-        direction_to_light = normalize(light.position - intersection_point)
-    
-    biased_intersection = intersection_point + direction_to_light * (0.01)
-    shadow_ray = Ray(biased_intersection, direction_to_light)
-    shadow_distance = light.get_distance_from_light(intersection_point)
-    
-    nearest_object, min_t, _ = shadow_ray.nearest_intersected_object(objects)
-    if nearest_object is None or min_t >= shadow_distance:
+def get_is_in_shadow(objects, light, intersection_point):
+    light_ray = light.get_light_ray(intersection_point)
+    light_distance = light.get_distance_from_light(intersection_point)
+    nearest_object, _, nearest_object_intersection_point = light_ray.nearest_intersected_object(objects)
+    if nearest_object is None:
         return False
-    return True
+    else:
+        nearest_object_distance = np.linalg.norm(intersection_point - nearest_object_intersection_point)
+        return nearest_object_distance < light_distance
 
 
 def get_diffuse_light(light, material, normal, intersection_point):
-    direction_to_light = normalize(light.get_light_ray(intersection_point).direction)
-    light_intensity = light.get_intensity(intersection_point)
-    diffuse = np.dot(normal,direction_to_light)
-    return material['diffuse'] * light_intensity * max(diffuse, 0)
-
+    light_direction = light.get_light_ray(intersection_point).direction
+    return material['diffuse'] * light.get_intensity(intersection_point) * np.dot(light_direction, normal)
 
 
 def get_specular_light(light, material, normal, intersection_point, ray):
-    direction_to_light = light.get_light_ray(intersection_point).direction
-    direction_to_camera = normalize(ray.origin - intersection_point)
-    direction_reflected = reflected(direction_to_light, normal)
-    specular = np.dot(direction_reflected, direction_to_camera)
-    light_intensity = light.get_intensity(intersection_point)
-    return material['specular'] * light_intensity * specular ** material['shininess']
+    light_direction = light.get_light_ray(intersection_point).direction
+    reflection = normalize(reflected(-light_direction, normal))
+    view_direction = -ray.direction
+    return (material['specular'] * light.get_intensity(intersection_point) * np.dot(reflection, view_direction) **
+            material['shininess'])
 
 
 def render_scene(camera, ambient, lights, objects, screen_size, max_depth):
@@ -91,7 +79,11 @@ def render_scene(camera, ambient, lights, objects, screen_size, max_depth):
             direction = normalize(pixel - origin)
             ray = Ray(origin, direction)
 
-            color = get_color(scene, ray, 1, max_depth)
+            color = np.zeros(3)
+            closest_object, min_t, intersection_point = ray.nearest_intersected_object(objects)
+            if closest_object is not None:
+                color += get_color(scene, ray, 1, max_depth)
+
             # We clip the values between 0 and 1 so all pixel values will make sense.
             image[i, j] = np.clip(color, 0, 1)
 
