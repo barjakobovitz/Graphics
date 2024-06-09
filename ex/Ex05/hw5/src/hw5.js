@@ -6,7 +6,7 @@ const WHITE_COLOR = 0xffffff;
 const BLACK_COLOR = 0x000000;
 const LIGHT_GRAY_COLOR = 0xd3d3d3;
 const GOAL_HEIGHT = 2;
-let scale = 1;
+const GOAL_Z_POSITION = -1.5;
 let isWireframe = false;
 
 
@@ -58,19 +58,20 @@ dirLight.shadow.bias = - 0.0001;
 // Add here the rendering of your goal
 
 // Ball
-const ballGeometry = new THREE.SphereGeometry(GOAL_HEIGHT * scale / 8, 32, 32);
+const ballGeometry = new THREE.SphereGeometry(GOAL_HEIGHT / 16, 32, 32);
 const ballMaterial = new THREE.MeshPhongMaterial({color: BLACK_COLOR, wireframe: isWireframe});
 const ball = new THREE.Mesh(ballGeometry, ballMaterial);
-scene.add(ball);
+const ballPositionMatrix = new THREE.Matrix4().makeTranslation(0, -GOAL_HEIGHT / 8, GOAL_Z_POSITION / 4);
+ball.applyMatrix4(ballPositionMatrix)
 
 // GOAL
 const goalMaterial = new THREE.MeshPhongMaterial( {color: WHITE_COLOR} ); // white
 
 // Goal crossbar
-const crossBarLength = 3 * GOAL_HEIGHT * scale;
+const crossBarLength = 3 * GOAL_HEIGHT;
 const goalCrossBarGeometry = new THREE.CylinderGeometry(0.1,0.1, crossBarLength,32);
 const goalCrossBar = new THREE.Mesh(goalCrossBarGeometry, goalMaterial);
-const goalCrossBarPositionMatrix = new THREE.Matrix4().makeTranslation(0, GOAL_HEIGHT / 2, -2);
+const goalCrossBarPositionMatrix = new THREE.Matrix4().makeTranslation(0, GOAL_HEIGHT / 2, GOAL_Z_POSITION);
 const crossBarRotateMatrix = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
 const crossBarTranslateMatrix = new THREE.Matrix4().multiplyMatrices(goalCrossBarPositionMatrix, crossBarRotateMatrix);
 goalCrossBar.applyMatrix4(crossBarTranslateMatrix);
@@ -80,8 +81,8 @@ const goalPostGeometry = new THREE.CylinderGeometry(0.105,0.105, GOAL_HEIGHT + 0
 const goalRightPost = new THREE.Mesh(goalPostGeometry, goalMaterial);
 const goalLeftPost = new THREE.Mesh(goalPostGeometry, goalMaterial);
 const postPosition = (GOAL_HEIGHT * 3) / 2 - 0.1;
-const goalRightPostTranslateMatrix = new THREE.Matrix4().makeTranslation(postPosition + 0.0675,0.05,-2);
-const goalLeftPostTranslateMatrix = new THREE.Matrix4().makeTranslation(-postPosition - 0.0675,0.05,-2);
+const goalRightPostTranslateMatrix = new THREE.Matrix4().makeTranslation(postPosition + 0.0675,0.05, GOAL_Z_POSITION);
+const goalLeftPostTranslateMatrix = new THREE.Matrix4().makeTranslation(-postPosition - 0.0675,0.05, GOAL_Z_POSITION);
 goalRightPost.applyMatrix4(goalRightPostTranslateMatrix);
 goalLeftPost.applyMatrix4(goalLeftPostTranslateMatrix);
 
@@ -93,25 +94,26 @@ const goalRightPostSupport = new THREE.Mesh(goalPostSupportGeometry, goalMateria
 const goalLeftPostSupport = new THREE.Mesh(goalPostSupportGeometry, goalMaterial);
 const postSupportRotationMatrix = new THREE.Matrix4();
 postSupportRotationMatrix.makeRotationX(degrees_to_radians(goalSupportAngle));
-const goalLeftPostSupportTranslateMatrix = new THREE.Matrix4().makeTranslation(-postPosition - 0.066,0, (-postPosition / 3) - 2.025).multiply(postSupportRotationMatrix);
-const goalRightPostSupportTranslateMatrix = new THREE.Matrix4().makeTranslation(postPosition + 0.066,0,(-postPosition / 3) - 2.025).multiply(postSupportRotationMatrix);
+const goalLeftPostSupportTranslateMatrix = new THREE.Matrix4().makeTranslation(-postPosition - 0.066,0, (-postPosition / 3) + (GOAL_Z_POSITION - 0.025)).multiply(postSupportRotationMatrix);
+const goalRightPostSupportTranslateMatrix = new THREE.Matrix4().makeTranslation(postPosition + 0.066,0,(-postPosition / 3) + (GOAL_Z_POSITION - 0.025)).multiply(postSupportRotationMatrix);
 goalRightPostSupport.applyMatrix4(goalRightPostSupportTranslateMatrix);
 goalLeftPostSupport.applyMatrix4(goalLeftPostSupportTranslateMatrix);
 
 // Goal post torus
 const goalTorusMaterial = new THREE.MeshPhongMaterial( {color: 0xffffff, side: THREE.DoubleSide, wireframe:isWireframe} );
 const goalTorusGeometry = new THREE.RingGeometry(0,0.2,32);
+const goalSupportTorusGeometry = new THREE.RingGeometry(0,0.125,32);
 const goalRightPostTorus = new THREE.Mesh(goalTorusGeometry, goalTorusMaterial);
-const goalRightPostSupportTorus = new THREE.Mesh(goalTorusGeometry, goalTorusMaterial);
+const goalRightPostSupportTorus = new THREE.Mesh(goalSupportTorusGeometry, goalTorusMaterial);
 const goalLeftPostTorus = new THREE.Mesh(goalTorusGeometry, goalTorusMaterial);
-const goalLeftPostSupportTorus = new THREE.Mesh(goalTorusGeometry, goalTorusMaterial);
+const goalLeftPostSupportTorus = new THREE.Mesh(goalSupportTorusGeometry, goalTorusMaterial);
 const supportTorusPosition = GOAL_HEIGHT / Math.tan(degrees_to_radians(goalSupportAngle)) - 0.1;
 const torusRotationMatrix = new THREE.Matrix4();
 torusRotationMatrix.makeRotationX(degrees_to_radians(90));
-const goalLeftPostTorusTranslateMatrix = new THREE.Matrix4().makeTranslation(-postPosition - 0.0675,-GOAL_HEIGHT / 2,-2).multiply(torusRotationMatrix);
-const goalLeftPostSupportTorusTranslateMatrix = new THREE.Matrix4().makeTranslation(-postPosition - 0.066, -GOAL_HEIGHT / 2,  -supportTorusPosition - 2.125).multiply(torusRotationMatrix);
-const goalRightPostSupportTorusTranslateMatrix = new THREE.Matrix4().makeTranslation(postPosition + 0.066, -GOAL_HEIGHT / 2,  -supportTorusPosition - 2.125).multiply(torusRotationMatrix);
-const goalRightPostTorusTranslateMatrix = new THREE.Matrix4().makeTranslation(postPosition + 0.0675, -GOAL_HEIGHT / 2, -2).multiply(torusRotationMatrix);
+const goalLeftPostTorusTranslateMatrix = new THREE.Matrix4().makeTranslation(-postPosition - 0.0675,-GOAL_HEIGHT / 2, GOAL_Z_POSITION).multiply(torusRotationMatrix);
+const goalLeftPostSupportTorusTranslateMatrix = new THREE.Matrix4().makeTranslation(-postPosition - 0.066, -GOAL_HEIGHT / 2,  -supportTorusPosition + (GOAL_Z_POSITION - 0.1)).multiply(torusRotationMatrix);
+const goalRightPostSupportTorusTranslateMatrix = new THREE.Matrix4().makeTranslation(postPosition + 0.066, -GOAL_HEIGHT / 2,  -supportTorusPosition + (GOAL_Z_POSITION - 0.1)).multiply(torusRotationMatrix);
+const goalRightPostTorusTranslateMatrix = new THREE.Matrix4().makeTranslation(postPosition + 0.0675, -GOAL_HEIGHT / 2, GOAL_Z_POSITION).multiply(torusRotationMatrix);
 goalRightPostTorus.applyMatrix4(goalRightPostTorusTranslateMatrix);
 goalLeftPostTorus.applyMatrix4(goalLeftPostTorusTranslateMatrix);
 goalRightPostSupportTorus.applyMatrix4(goalRightPostSupportTorusTranslateMatrix);
@@ -122,14 +124,16 @@ goalLeftPostSupportTorus.applyMatrix4(goalLeftPostSupportTorusTranslateMatrix);
 const goalNetMaterial = new THREE.MeshPhongMaterial({
 	color: LIGHT_GRAY_COLOR,
 	side: THREE.DoubleSide,
-	wireframe: isWireframe
+	wireframe: isWireframe,
+	opacity: 0.8,
+	transparent: true
 });
 
 // Main net behind the goal
 const goalNetGeometry = new THREE.PlaneGeometry(crossBarLength, goalPostSupportLength - 0.1, 32);
 const goalNet = new THREE.Mesh(goalNetGeometry, goalNetMaterial);
 const goalNetRotationMatrix = new THREE.Matrix4().makeRotationX(Math.PI / 4);
-const goalNetPositionMatrix = new THREE.Matrix4().makeTranslation(0, 0, (-postPosition / 3) - 2.025);
+const goalNetPositionMatrix = new THREE.Matrix4().makeTranslation(0, 0, (-postPosition / 3) + (GOAL_Z_POSITION - 0.025));
 const goalNetTranslateMatrix = new THREE.Matrix4().multiplyMatrices(goalNetPositionMatrix, goalNetRotationMatrix);
 goalNet.applyMatrix4(goalNetTranslateMatrix);
 
@@ -147,15 +151,16 @@ sideNetGeometry.computeVertexNormals();
 
 // Left side net
 const leftSideNet = new THREE.Mesh(sideNetGeometry, goalNetMaterial);
-leftSideNet.position.set(-1.5 * GOAL_HEIGHT, (-sideNetHeight / 2), -2); // Positioning left net
+leftSideNet.position.set(-1.5 * GOAL_HEIGHT, (-sideNetHeight / 2), GOAL_Z_POSITION); // Positioning left net
 leftSideNet.rotation.y = Math.PI / 2; // Rotate to face towards the goal
 
 // Right side net
 const rightSideNet = new THREE.Mesh(sideNetGeometry, goalNetMaterial);
-rightSideNet.position.set(1.5 * GOAL_HEIGHT, (-sideNetHeight / 2), -2); // Positioning left net
+rightSideNet.position.set(1.5 * GOAL_HEIGHT, (-sideNetHeight / 2), GOAL_Z_POSITION); // Positioning left net
 rightSideNet.rotation.y = Math.PI / 2; // Rotate to face towards the goal
 
 
+scene.add(ball);
 scene.add(goalCrossBar);
 scene.add(goalRightPost);
 scene.add(goalLeftPost);
@@ -198,9 +203,59 @@ const toggleWireframe = (e) => {
 	}
 }
 
+const toggleScale = (e) => {
+	if (e.key === "3") {
+		const scaleFactor = 0.95; // Reduce size by 5%
+		const scaleMatrix = new THREE.Matrix4().makeScale(scaleFactor, scaleFactor, scaleFactor);
+		goalCrossBar.applyMatrix4(scaleMatrix);
+		goalRightPost.applyMatrix4(scaleMatrix);
+		goalLeftPost.applyMatrix4(scaleMatrix);
+		goalRightPostSupport.applyMatrix4(scaleMatrix);
+		goalLeftPostSupport.applyMatrix4(scaleMatrix);
+		goalRightPostSupportTorus.applyMatrix4(scaleMatrix);
+		goalLeftPostSupportTorus.applyMatrix4(scaleMatrix);
+		goalRightPostTorus.applyMatrix4(scaleMatrix);
+		goalLeftPostTorus.applyMatrix4(scaleMatrix);
+		goalNet.applyMatrix4(scaleMatrix);
+		leftSideNet.applyMatrix4(scaleMatrix);
+		rightSideNet.applyMatrix4(scaleMatrix);
+	}
+}
+
+let yAxisRotation = false;
+let xAxisRotation = false;
+let speedFactor = 1.0;
+const animateBall = (e) => {
+	if (e.key === '1') {
+		yAxisRotation = !yAxisRotation;
+	} else if (e.key === '2') {
+		xAxisRotation = !xAxisRotation;
+	} else if (e.key === 'ArrowUp' || e.key === '+') {
+		speedFactor += 0.1; // Increment speed
+	} else if (e.key === 'ArrowDown' || e.key === '-') {
+		speedFactor = Math.max(0.1, speedFactor - 0.1); // Decrement speed but not below 0.1
+	}
+}
+
+const updateAnimations = () => {
+	if (yAxisRotation) {
+		const rotationMatrix = new THREE.Matrix4().makeRotationY(0.05 * speedFactor);
+		const positionMatrix = new  THREE.Matrix4().makeTranslation(0, 0, -0.05 * speedFactor);
+		const translationMatrix = new THREE.Matrix4().multiplyMatrices(positionMatrix, rotationMatrix);
+		ball.applyMatrix4(translationMatrix);
+	}
+	if (xAxisRotation) {
+		const rotationMatrix = new THREE.Matrix4().makeRotationX(0.05 * speedFactor);
+		const positionMatrix = new  THREE.Matrix4().makeTranslation(0, 0.02 * speedFactor, -0.15 * speedFactor);
+		const translationMatrix = new THREE.Matrix4().multiplyMatrices(positionMatrix, rotationMatrix);
+		ball.applyMatrix4(translationMatrix);
+	}
+}
 
 document.addEventListener('keydown',toggleOrbit)
 document.addEventListener('keydown',toggleWireframe)
+document.addEventListener('keydown',toggleScale)
+document.addEventListener('keydown', animateBall);
 
 //controls.update() must be called after any manual changes to the camera's transform
 controls.update();
@@ -208,6 +263,7 @@ controls.update();
 function animate() {
 
 	requestAnimationFrame( animate );
+	updateAnimations();
 
 	controls.enabled = isOrbitEnabled;
 	controls.update();
