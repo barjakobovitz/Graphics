@@ -175,6 +175,33 @@ scene.add(leftSideNet);
 scene.add(rightSideNet);
 
 
+const cubeSize = 1; // Set the size of the cube, adjust as needed
+const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+const textureLoader = new THREE.TextureLoader();
+const logoTexture = textureLoader.load('https://upload.wikimedia.org/wikipedia/en/1/15/Maccabi_Haifa_FC_Logo_2023.png', function (texture) {
+	texture.magFilter = THREE.LinearFilter;
+	texture.minFilter = THREE.LinearFilter;
+	texture.generateMipmaps = false;
+});
+const whiteBoxMaterial = new THREE.MeshPhongMaterial({
+	color: WHITE_COLOR,
+	side: THREE.DoubleSide
+});
+const logoMaterial = new THREE.MeshPhongMaterial({
+	map: logoTexture,
+	transparent: true,
+	side: THREE.DoubleSide
+});
+const logoBox = new THREE.Group();
+const whiteBox = new THREE.Mesh(cubeGeometry, whiteBoxMaterial);
+const logoBoxOverlay = new THREE.Mesh(cubeGeometry, logoMaterial);
+
+logoBox.add(whiteBox);
+logoBox.add(logoBoxOverlay);
+
+logoBox.position.set(0, GOAL_HEIGHT + cubeSize / 2, GOAL_Z_POSITION); // Position it over the goal
+scene.add(logoBox);
+
 
 // This defines the initial distance of the camera
 const cameraTranslate = new THREE.Matrix4();
