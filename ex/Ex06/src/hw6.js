@@ -69,6 +69,7 @@ scene.add(directionalLight2);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
+
 // TODO: Goal
 // You should copy-paste the goal from the previous exercise here
 const goalMaterial = new THREE.MeshPhongMaterial( {color: WHITE_COLOR} ); // white
@@ -321,24 +322,60 @@ const handle_keydown = (e) => {
 }
 document.addEventListener('keydown', handle_keydown);
 
-function animate() {
+
+//adding Maccabi Logo box
+const cubeSize = 16; // Set the size of the cube, adjust as needed
+const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+const logoTexture = textureLoader.load('https://upload.wikimedia.org/wikipedia/en/1/15/Maccabi_Haifa_FC_Logo_2023.png', function (texture) {
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+});
+const whiteBoxMaterial = new THREE.MeshPhongMaterial({
+    color: WHITE_COLOR,
+    side: THREE.DoubleSide,
+});
+const logoMaterial = new THREE.MeshPhongMaterial({
+    map: logoTexture,
+    transparent: true,
+    side: THREE.DoubleSide,
+});
+const logoBox = new THREE.Group();
+const whiteBox = new THREE.Mesh(cubeGeometry, whiteBoxMaterial);
+const logoBoxOverlay = new THREE.Mesh(cubeGeometry, logoMaterial);
+
+logoBox.add(whiteBox);
+logoBox.add(logoBoxOverlay);
+
+logoBox.position.set(0, GOAL_HEIGHT + cubeSize / 2, GOAL_Z_POSITION - 32); // Position it over the goal
+scene.add(logoBox);
+
+const adGeometry = new THREE.PlaneGeometry(40, 5);
+const adMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const adMesh = new THREE.Mesh(adGeometry, adMaterial);
+adMesh.position.set(0, 5, 48);  // Front of the audience
+scene.add(adMesh);
+
+let lastTime = 0;
+function animate(time) {
 
 	requestAnimationFrame( animate );
+    const delta = (time - lastTime) / 1000;  // Delta time in seconds
+    lastTime = time;
 
 	// TODO: Animation for the ball's position
     if (animateBallAlongCurve) {
-        t += 0.0005;  // Increment t to move the ball along the curve
+        t += delta * 0.1;  // Adjust speed by delta time, change '0.1' to control speed
         if (t > 1) {
-            t = 0;  // Reset t to loop the animation
+            t = 0;  // Loop back to start of curve
         }
 
-        // Set ball position based on the current curve and t
         const position = curves[currentCurve].getPointAt(t);
         ball.position.copy(position);
 
-        // Optionally rotate the ball to simulate rolling
-        ball.rotation.y += 0.075;
-        ball.rotation.x += 0.0025;
+        // Rotate the ball
+        ball.rotation.y += delta * 5;  // Adjust rotation speed
+        ball.rotation.x += delta * 0.5;  // Adjust rotation speed
     }
 
     updateCameraPosition();
@@ -350,4 +387,4 @@ function animate() {
 	renderer.render( scene, camera );
 
 }
-animate()
+animate(lastTime)
