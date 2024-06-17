@@ -25,19 +25,18 @@ function degrees_to_radians(degrees)
 }
 
 // LIGHTS
-
 const hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 2 );
 hemiLight.color.setHSL( 0.6, 1, 0.6 );
 hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
 hemiLight.position.set( 0, 50, 0 );
-scene.add( hemiLight );
+scene.add(hemiLight);
 
 
 const dirLight = new THREE.DirectionalLight( 0xffffff, 3 );
 dirLight.color.setHSL( 0.1, 1, 0.95 );
 dirLight.position.set( - 1, 1.75, 1 );
 dirLight.position.multiplyScalar( 30 );
-scene.add( dirLight );
+scene.add(dirLight);
 
 dirLight.castShadow = true;
 
@@ -185,12 +184,14 @@ const logoTexture = textureLoader.load('https://upload.wikimedia.org/wikipedia/e
 });
 const whiteBoxMaterial = new THREE.MeshPhongMaterial({
 	color: WHITE_COLOR,
-	side: THREE.DoubleSide
+	side: THREE.DoubleSide,
+	wireframe: isWireframe
 });
 const logoMaterial = new THREE.MeshPhongMaterial({
 	map: logoTexture,
 	transparent: true,
-	side: THREE.DoubleSide
+	side: THREE.DoubleSide,
+	wireframe: isWireframe
 });
 const logoBox = new THREE.Group();
 const whiteBox = new THREE.Mesh(cubeGeometry, whiteBoxMaterial);
@@ -227,6 +228,8 @@ const toggleWireframe = (e) => {
 		goalMaterial.wireframe = isWireframe;
 		goalNetMaterial.wireframe = isWireframe;
 		goalTorusMaterial.wireframe = isWireframe;
+		whiteBoxMaterial.wireframe = isWireframe;
+		logoMaterial.wireframe = isWireframe;
 	}
 }
 
@@ -267,7 +270,7 @@ const animateBall = (e) => {
 const updateAnimations = () => {
 	if (yAxisRotation) {
 		const rotationMatrix = new THREE.Matrix4().makeRotationY(0.05 * speedFactor);
-		const positionMatrix = new  THREE.Matrix4().makeTranslation(0, 0, -0.05 * speedFactor);
+		const positionMatrix = new  THREE.Matrix4().makeTranslation(0, 0, -0.15 * speedFactor);
 		const translationMatrix = new THREE.Matrix4().multiplyMatrices(positionMatrix, rotationMatrix);
 		ball.applyMatrix4(translationMatrix);
 	}
