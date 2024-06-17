@@ -83,6 +83,8 @@ drawCurve(curveLeftWinger, 0x0000ff); // Blue for left winger
 
 
 // TODO: Add collectible cards with textures
+let numYellowCards = 0;
+let numRedCards = 0;
 const cardGeometry = new THREE.PlaneGeometry(1, 1.5);
 const positions = [80, 60, 40, 20, 10, 0];
 class Card {
@@ -110,13 +112,15 @@ function createCardOnCurve(curve, t, texture) {
 // Function to initialize cards with random distribution
 function initializeCards() {
     const curves = [curveRightWinger, curveCenterForward, curveLeftWinger];
+    const margin = 0.1; // Margin to avoid placing cards at the very start or end of the curve
+
     curves.forEach(curve => {
         const numCards = Math.floor(Math.random() * 3) + 2;  // Random number of cards between 2 and 4
         let hasYellow = false;
         let hasRed = false;
 
         for (let i = 0; i < numCards; i++) {
-            let t = Math.random();  // Random t value along the curve
+            let t = Math.random() * (1 - 2 * margin) + margin;  // Adjusted t value to avoid start and endpoints
             let texture;
             if ((i === numCards - 1 && !hasYellow) || Math.random() > 0.5) {
                 texture = yellowCardTexture;
@@ -135,6 +139,41 @@ function initializeCards() {
 
 // Call initializeCards at the appropriate time in your code
 initializeCards();
+
+// const collisionTolerance = 0.05;  // Tolerance for collision detection
+// function checkForCollisions() {
+//     cards.forEach(card => {
+//         if (Math.abs(card.t - ballT) < collisionTolerance && card.curve === ballCurve) {
+//             if (card.object3D.visible) {
+//                 card.object3D.visible = false; // Hide the card visually
+//                 if (card.texture === yellowCardTexture) {
+//                     numYellowCards++;
+//                 } else if (card.texture === redCardTexture) {
+//                     numRedCards++;
+//                 }
+//                 updateFairPlayScore(); // Update score after collecting a card
+//             }
+//         }
+//     });
+// }
+
+
+// function updateFairPlayScore() {
+//     let fairPlayScore = 100 * Math.pow(2, (-numYellowCards + 10 * numRedCards) / 10);
+//     fairPlayScore = Math.max(fairPlayScore, 0); // Ensure score doesn't go negative
+//     console.log("Fair Play Score:", fairPlayScore);
+// }
+
+
+
+
+
+
+
+
+
+
+
 
 
 
