@@ -2,7 +2,7 @@ const WHITE_COLOR = 0xffffff;
 const BLACK_COLOR = 0x000000;
 const LIGHT_GRAY_COLOR = 0xd3d3d3;
 const GOAL_HEIGHT = 16;
-const GOAL_Z_POSITION = -50;
+const GOAL_Z_POSITION = 0;
 
 
 // Scene Declartion
@@ -72,9 +72,10 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // TODO: Goal
 // You should copy-paste the goal from the previous exercise here
 const goalMaterial = new THREE.MeshPhongMaterial( {color: WHITE_COLOR} ); // white
+const goalCrossbarRadius = 0.75;
 // Goal crossbar
 const crossBarLength = 3 * GOAL_HEIGHT + 1;
-const goalCrossBarGeometry = new THREE.CylinderGeometry(1,1, crossBarLength,32);
+const goalCrossBarGeometry = new THREE.CylinderGeometry(goalCrossbarRadius,goalCrossbarRadius, crossBarLength,32);
 const goalCrossBar = new THREE.Mesh(goalCrossBarGeometry, goalMaterial);
 const goalCrossBarPositionMatrix = new THREE.Matrix4().makeTranslation(0, GOAL_HEIGHT / 2, GOAL_Z_POSITION);
 const crossBarRotateMatrix = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
@@ -82,7 +83,8 @@ const crossBarTranslateMatrix = new THREE.Matrix4().multiplyMatrices(goalCrossBa
 goalCrossBar.applyMatrix4(crossBarTranslateMatrix);
 
 // Goal posts
-const goalPostGeometry = new THREE.CylinderGeometry(0.75,0.75, GOAL_HEIGHT + 0.75,32);
+const goalPostRadius = goalCrossbarRadius - 0.25;
+const goalPostGeometry = new THREE.CylinderGeometry(goalPostRadius,goalPostRadius, GOAL_HEIGHT + 0.75,32);
 const goalRightPost = new THREE.Mesh(goalPostGeometry, goalMaterial);
 const goalLeftPost = new THREE.Mesh(goalPostGeometry, goalMaterial);
 const postPosition = (GOAL_HEIGHT * 3) / 2 - 0.1;
@@ -92,9 +94,10 @@ goalRightPost.applyMatrix4(goalRightPostTranslateMatrix);
 goalLeftPost.applyMatrix4(goalLeftPostTranslateMatrix);
 
 // Goal post supports
+const goalSupportRadius = goalCrossbarRadius - 0.5;
 const goalSupportAngle = 45;
 const goalPostSupportLength = GOAL_HEIGHT / Math.cos(degrees_to_radians(goalSupportAngle)) + 1;
-const goalPostSupportGeometry = new THREE.CylinderGeometry(0.5,0.5, goalPostSupportLength,32);
+const goalPostSupportGeometry = new THREE.CylinderGeometry(goalSupportRadius,goalSupportRadius, goalPostSupportLength,32);
 const goalRightPostSupport = new THREE.Mesh(goalPostSupportGeometry, goalMaterial);
 const goalLeftPostSupport = new THREE.Mesh(goalPostSupportGeometry, goalMaterial);
 const postSupportRotationMatrix = new THREE.Matrix4();
@@ -202,10 +205,96 @@ ball.applyMatrix4(ballPositionMatrix)
 scene.add(ball);
 
 // TODO: Bezier Curves
+const start = new THREE.Vector3(0, 0, 100);
+const end = new THREE.Vector3(0, 0, 0);
+
+const controlRightWinger = new THREE.Vector3(50, 0, 50);
+const controlCenterForward = new THREE.Vector3(0, 50, 50);
+const controlLeftWinger = new THREE.Vector3(-50, 0, 50);
+
+const curveRightWinger = new THREE.QuadraticBezierCurve3(start, controlRightWinger, end);
+const curveCenterForward = new THREE.QuadraticBezierCurve3(start, controlCenterForward, end);
+const curveLeftWinger = new THREE.QuadraticBezierCurve3(start, controlLeftWinger, end);
+
+function drawCurve(curve, color) {
+    const points = curve.getPoints(50);
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({ color: color });
+    const curveObject = new THREE.Line(geometry, material);
+    scene.add(curveObject);
+}
+
+drawCurve(curveRightWinger, 0xff0000); // Red for right winger
+drawCurve(curveCenterForward, 0x00ff00); // Green for center forward
+drawCurve(curveLeftWinger, 0x0000ff); // Blue for left winger
+
+// TODO: Add collectible cards with textures
+const cardGeometry = new THREE.PlaneGeometry(1, 1.5);
+const positions = [80, 60, 40, 20, 10, 0];
+class Card {
+    constructor(curve, t, object3D) {
+        this.curve = curve;
+        this.t = t;
+        this.object3D = object3D;
+    }
+}
+
+// Define the list to hold all cards
+const cards = [];
+
+// Function to create and place a card on a curve
+function createCardOnCurve(curve, t, texture) {
+    const cardGeometry = new THREE.PlaneGeometry(1, 1.5);  // Standard card size
+    const cardMaterial = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+    const cardMesh = new THREE.Mesh(cardGeometry, cardMaterial);
+    cardMesh.position.copy(curve.getPointAt(t));
+    cardMesh.lookAt(new THREE.Vector3());  // Make the card face the origin or adjust as necessary
+    scene.add(cardMesh);
+    return new Card(curve, t, cardMesh);
+}
+
+// Function to initialize cards with random distribution
+function initializeCards() {
+    const curves = [curveRightWinger, curveCenterForward, curveLeftWinger];
+    curves.forEach(curve => {
+        const numCards = Math.floor(Math.random() * 3) + 2;  // Random number of cards between 2 and 4
+        let hasYellow = false;
+        let hasRed = false;
+
+        for (let i = 0; i < numCards; i++) {
+            let t = Math.random();  // Random t value along the curve
+            let texture;
+            if ((i === numCards - 1 && !hasYellow) || Math.random() > 0.5) {
+                texture = yellow_card_texture;
+                hasYellow = true;
+            } else {
+                texture = red_card_texture;
+                hasRed = true;
+            }
+            cards.push(createCardOnCurve(curve, t, texture));
+        }
+    });
+
+    // Sort cards by t value (optional, depends on use-case)
+    cards.sort((a, b) => a.t - b.t);
+}
+
+// Call initializeCards at the appropriate time in your code
+initializeCards();
 
 
 // TODO: Camera Settings
 // Set the camera following the ball here
+function updateCameraPosition() {
+    const offset = new THREE.Vector3(0, 5, 30); // Offset the camera slightly above and behind the ball
+    const lookAtPosition = new THREE.Vector3(ball.position.x, ball.position.y, ball.position.z);
+
+    // Calculate new camera position
+    const desiredPosition = new THREE.Vector3().addVectors(ball.position, offset);
+    camera.position.lerp(desiredPosition, 0.1); // Smooth transition to the desired position
+
+    camera.lookAt(lookAtPosition); // Always look at the ball
+}
 
 
 // TODO: Add collectible cards with textures
@@ -216,22 +305,43 @@ scene.add(ball);
 
 // TODO: Add keyboard event
 // We wrote some of the function for you
+const curves = [curveLeftWinger, curveCenterForward,curveRightWinger];
+let currentCurve = 1;  // Default curve
+let t = 0;
+let animateBallAlongCurve = true;
+
 const handle_keydown = (e) => {
-	if(e.code == 'ArrowLeft'){
-		// TODO
-	} else if (e.code == 'ArrowRight'){
-		// TODO
-	}
+    if (e.code === 'ArrowLeft') {
+        currentCurve = (currentCurve - 1 + curves.length) % curves.length;
+        console.log("Switched to previous curve");
+    } else if (e.code === 'ArrowRight') {
+        currentCurve = (currentCurve + 1) % curves.length;
+        console.log("Switched to next curve");
+    }
 }
 document.addEventListener('keydown', handle_keydown);
-
-
 
 function animate() {
 
 	requestAnimationFrame( animate );
 
 	// TODO: Animation for the ball's position
+    if (animateBallAlongCurve) {
+        t += 0.0005;  // Increment t to move the ball along the curve
+        if (t > 1) {
+            t = 0;  // Reset t to loop the animation
+        }
+
+        // Set ball position based on the current curve and t
+        const position = curves[currentCurve].getPointAt(t);
+        ball.position.copy(position);
+
+        // Optionally rotate the ball to simulate rolling
+        ball.rotation.y += 0.075;
+        ball.rotation.x += 0.0025;
+    }
+
+    updateCameraPosition();
 
 
 	// TODO: Test for card-ball collision
