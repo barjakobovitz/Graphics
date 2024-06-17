@@ -246,22 +246,31 @@ class Card {
 }
 
 // Define the list to hold all cards
-const cards = [];
+let cards = [];
 
 // Function to create and place a card on a curve
-function createCardOnCurve(curve, t, texture, isVAR) {
-    const cardGeometry = new THREE.PlaneGeometry(1, 1.5);  // Standard card size
+function createCardOnCurve(curve, t, texture, isVar) {
+    const cardGeometry = new THREE.PlaneGeometry(1 * (isVar ? 2 : 1), 1.5 * (isVar ? 2 : 1));  // Standard card size
     const cardMaterial = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
     const cardMesh = new THREE.Mesh(cardGeometry, cardMaterial);
-    cardMesh.position.copy(curve.getPointAt(t));
+
+    // Ensure the card is not placed at the start or end of the curve
+    const margin = 0.1;
+    const safeT = margin + t * (1 - 2 * margin);
+
+    cardMesh.position.copy(curve.getPointAt(safeT));
     cardMesh.lookAt(new THREE.Vector3());  // Make the card face the origin or adjust as necessary
     scene.add(cardMesh);
-    return new Card(curve, t, cardMesh, texture, isVAR);
+
+    return new Card(curve, safeT, cardMesh, texture, isVar)
 }
 
+const curves = [curveLeftWinger, curveCenterForward, curveRightWinger];
 // Function to initialize cards with random distribution
 function initializeCards() {
-    const curves = [curveRightWinger, curveCenterForward, curveLeftWinger];
+    if (cards.length > 0) {
+        cards = []; // Clear existing cards
+    }
     curves.forEach(curve => {
         const numCards = Math.floor(Math.random() * 3) + 2;  // Random number of cards between 2 and 4
         let hasYellow = false;
@@ -318,7 +327,6 @@ function updateCameraPosition() {
 
 // TODO: Add keyboard event
 // We wrote some of the function for you
-const curves = [curveLeftWinger, curveCenterForward,curveRightWinger];
 let currentCurve = 1;  // Default curve
 let t = 0;
 let animateBallAlongCurve = true;
@@ -385,11 +393,11 @@ function animate(time) {
     const delta = (time - lastTime) / 1000;  // Delta time in seconds
     lastTime = time;
 
-	// TODO: Animation for the ball's position
+    // TODO: Animation for the ball's position
     if (animateBallAlongCurve) {
         t += delta * 0.1;  // Adjust speed by delta time, change '0.1' to control speed
         if (t > 1) {
-            t = 1;  // Stop at the end of the curve
+            t = 0;  // Stop at the end of the curve
             hasReachedEnd = true;
             animateBallAlongCurve = false;
         }
@@ -404,41 +412,43 @@ function animate(time) {
     }
 
     updateCameraPosition();
-    
 
 
-// TODO: Test for card-ball collision
-const collisionTolerance = 0.05;  // Tolerance for collision detection
-function checkForCollisions() {
-    cards.forEach(card => {
-        if (Math.abs(card.t - t) < collisionTolerance && card.curve === curves[currentCurve]) {
-            if (card.object3D.visible) {
-                card.object3D.visible = false; // Hide the card visually
-                if (card.texture === yellow_card_texture) {
-                    numYellowCards++;
-                } else if (card.texture === red_card_texture) {
-                    numRedCards++;
-                } else if (card.isVAR) {
-                    // Increase the Fair Play score for VAR cards
-                    numYellowCards = Math.max(0, numYellowCards - 1);
-                    numRedCards = Math.max(0, numRedCards - 1);
+    // TODO: Test for card-ball collision
+    const collisionTolerance = 0.05;  // Tolerance for collision detection
+    function checkForCollisions() {
+        cards.forEach(card => {
+            if (Math.abs(card.t - t) < collisionTolerance && card.curve === curves[currentCurve]) {
+                if (card.object3D.visible) {
+                    card.object3D.visible = false; // Hide the card visually
+                    if (card.texture === yellow_card_texture) {
+                        numYellowCards++;
+                    } else if (card.texture === red_card_texture) {
+                        numRedCards++;
+                    } else if (card.isVAR) {
+                        // Increase the Fair Play score for VAR cards
+                        numYellowCards = Math.max(0, numYellowCards - 1);
+                        numRedCards = Math.max(0, numRedCards - 1);
+                    }
                 }
             }
-        }
-    });
-}
+        });
+    }
 
-checkForCollisions();
+    checkForCollisions();
 
+    if (hasReachedEnd) {
+        let fairPlayScore = 100 * Math.pow(2, -(numYellowCards + 10 * numRedCards) / 10);
+        fairPlayScore = Math.max(fairPlayScore, 0).toFixed(2); // Ensure score doesn't go negative
+        hasReachedEnd = false;
+        alert(`Your score is: ${fairPlayScore}! Press Enter to play again.`)
+        initializeCards();
+        setTimeout(()=> {
+            animateBallAlongCurve = true;
+        },750);
+    }
 
-if (hasReachedEnd) {
-    let fairPlayScore = 100 * Math.pow(2, -(numYellowCards + 10 * numRedCards) / 10);
-    fairPlayScore = Math.max(fairPlayScore, 0); // Ensure score doesn't go negative
-    console.log("Final Fair Play Score:", fairPlayScore);
-}
-
-	
-	renderer.render( scene, camera );
+    renderer.render( scene, camera );
 
 }
 animate(lastTime)
