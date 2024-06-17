@@ -47,6 +47,7 @@ const ball_texture = textureLoader.load('src/textures/soccer_ball.jpg');
 const red_card_texture = textureLoader.load('src/textures/red_card.jpg');
 const yellow_card_texture = textureLoader.load('src/textures/yellow_card.jpg');
 const net_texture = textureLoader.load('src/textures/goal_net.png');
+const ad_texture = textureLoader.load('src/textures/winner.png');
 
 
 
@@ -350,11 +351,21 @@ logoBox.add(logoBoxOverlay);
 logoBox.position.set(0, GOAL_HEIGHT + cubeSize / 2, GOAL_Z_POSITION - 32); // Position it over the goal
 scene.add(logoBox);
 
-const adGeometry = new THREE.PlaneGeometry(40, 5);
-const adMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-const adMesh = new THREE.Mesh(adGeometry, adMaterial);
-adMesh.position.set(0, 5, 48);  // Front of the audience
-scene.add(adMesh);
+const adGeometry = new THREE.BoxGeometry(40, 5);
+const adMaterial = new THREE.MeshBasicMaterial({ map: ad_texture, side: THREE.DoubleSide});
+const rightAdMesh = new THREE.Mesh(adGeometry, adMaterial);
+const leftAdMesh = new THREE.Mesh(adGeometry, adMaterial);
+const rightAdPositionMatrix = new THREE.Matrix4().makeTranslation(55, 0, 5);
+const leftAdPositionMatrix = new THREE.Matrix4().makeTranslation(-55, 0, 5);
+const rightAdRotationMatrix = new THREE.Matrix4().makeRotationY(Math.PI / 1.5);
+const leftAdRotationMatrix = new THREE.Matrix4().makeRotationY(-Math.PI / 1.5);
+const rightAdTranslateMatrix = new THREE.Matrix4().multiplyMatrices(rightAdPositionMatrix,rightAdRotationMatrix);
+const leftAdTranslateMatrix = new THREE.Matrix4().multiplyMatrices(leftAdPositionMatrix,leftAdRotationMatrix);
+rightAdMesh.applyMatrix4(rightAdTranslateMatrix);
+leftAdMesh.applyMatrix4(leftAdTranslateMatrix);
+
+scene.add(rightAdMesh);
+scene.add(leftAdMesh);
 
 let lastTime = 0;
 function animate(time) {
@@ -376,6 +387,7 @@ function animate(time) {
         // Rotate the ball
         ball.rotation.y += delta * 5;  // Adjust rotation speed
         ball.rotation.x += delta * 0.5;  // Adjust rotation speed
+        logoBox.rotation.y += delta * 0.25;  // Adjust rotation speed
     }
 
     updateCameraPosition();
