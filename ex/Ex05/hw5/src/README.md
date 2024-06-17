@@ -5,5 +5,6 @@
 * Another wing was added to the spaceship in order to make it look more symmetrically. (so 4 wings in total)
 * We added an additional animation (toggle on with '4' keyboard key) which make our planet (Earth) rotate around iteself and around the sun.
  and also the sun rotate around itself.
+* We added a Cube with the logo of Maccabi Haifa, the best team in the Israel. And if they play aborad at france or germany so they are the best team in the world. 
 
 
