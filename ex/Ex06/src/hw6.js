@@ -220,18 +220,6 @@ const curveRightWinger = new THREE.QuadraticBezierCurve3(start, controlRightWing
 const curveCenterForward = new THREE.QuadraticBezierCurve3(start, controlCenterForward, end);
 const curveLeftWinger = new THREE.QuadraticBezierCurve3(start, controlLeftWinger, end);
 
-function drawCurve(curve, color) {
-    const points = curve.getPoints(50);
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: color });
-    const curveObject = new THREE.Line(geometry, material);
-    scene.add(curveObject);
-}
-
-drawCurve(curveRightWinger, 0xff0000); // Red for right winger
-drawCurve(curveCenterForward, 0x00ff00); // Green for center forward
-drawCurve(curveLeftWinger, 0x0000ff); // Blue for left winger
-
 // TODO: Add collectible cards with textures
 const cardGeometry = new THREE.PlaneGeometry(1, 1.5);
 const positions = [80, 60, 40, 20, 10, 0];
@@ -268,9 +256,7 @@ function createCardOnCurve(curve, t, texture, isVar) {
 const curves = [curveLeftWinger, curveCenterForward, curveRightWinger];
 // Function to initialize cards with random distribution
 function initializeCards() {
-    if (cards.length > 0) {
-        cards = []; // Clear existing cards
-    }
+    cards = []; 
     curves.forEach(curve => {
         const numCards = Math.floor(Math.random() * 3) + 2;  // Random number of cards between 2 and 4
         let hasYellow = false;
@@ -459,6 +445,8 @@ function animate(time) {
         let fairPlayScore = 100 * Math.pow(2, -(numYellowCards + 10 * numRedCards) / 10);
         fairPlayScore = Math.max(fairPlayScore, 0).toFixed(2); // Ensure score doesn't go negative
         hasReachedEnd = false;
+        numYellowCards = 0;
+        numRedCards=0;
         alert(`Your score is: ${fairPlayScore}! Press Enter to play again.`)
         initializeCards();
         setTimeout(()=> {
