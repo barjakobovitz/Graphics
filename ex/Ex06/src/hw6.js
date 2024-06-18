@@ -48,6 +48,7 @@ const textureLoader = new THREE.TextureLoader();
 const ball_texture = textureLoader.load('src/textures/soccer_ball.jpg');
 const red_card_texture = textureLoader.load('src/textures/red_card.jpg');
 const yellow_card_texture = textureLoader.load('src/textures/yellow_card.jpg');
+const var_card_texture = textureLoader.load('src/textures/var_card.jpg', );
 const net_texture = textureLoader.load('src/textures/goal_net.png');
 const ad_texture = textureLoader.load('src/textures/winner.png');
 
@@ -221,15 +222,12 @@ const curveCenterForward = new THREE.QuadraticBezierCurve3(start, controlCenterF
 const curveLeftWinger = new THREE.QuadraticBezierCurve3(start, controlLeftWinger, end);
 
 // TODO: Add collectible cards with textures
-const cardGeometry = new THREE.PlaneGeometry(1, 1.5);
-const positions = [80, 60, 40, 20, 10, 0];
 class Card {
-    constructor(curve, t, object3D, texture, isVAR) {
+    constructor(curve, t, object3D, cardType) {
         this.curve = curve;
         this.t = t;
         this.object3D = object3D;
-        this.texture = texture;
-        this.isVAR = isVAR;
+        this.cardType = cardType;
     }
 }
 
@@ -237,10 +235,14 @@ class Card {
 let cards = [];
 
 // Function to create and place a card on a curve
-function createCardOnCurve(curve, t, texture, isVar) {
-    const cardGeometry = new THREE.PlaneGeometry(1 * (isVar ? 2 : 1), 1.5 * (isVar ? 2 : 1));  // Standard card size
+function createCardOnCurve(curve, t, texture, cardType) {
+    const cardGeometry = new THREE.PlaneGeometry(1, 1.5);  // Standard card size
     const cardMaterial = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
     const cardMesh = new THREE.Mesh(cardGeometry, cardMaterial);
+    if (cardType === 'VAR') {
+        const varCardScaleMatrix = new THREE.Matrix4().makeScale(2, 2, 2);
+        cardMesh.applyMatrix4(varCardScaleMatrix);
+    }
 
     // Ensure the card is not placed at the start or end of the curve
     const margin = 0.1;
@@ -250,13 +252,12 @@ function createCardOnCurve(curve, t, texture, isVar) {
     cardMesh.lookAt(new THREE.Vector3());  // Make the card face the origin or adjust as necessary
     scene.add(cardMesh);
 
-    return new Card(curve, safeT, cardMesh, texture, isVar)
+    return new Card(curve, safeT, cardMesh, cardType)
 }
 
 const curves = [curveLeftWinger, curveCenterForward, curveRightWinger];
 // Function to initialize cards with random distribution
 function initializeCards() {
-    cards = []; 
     curves.forEach(curve => {
         const numCards = Math.floor(Math.random() * 3) + 2;  // Random number of cards between 2 and 4
         let hasYellow = false;
@@ -265,21 +266,21 @@ function initializeCards() {
 
         for (let i = 0; i < numCards; i++) {
             let t = Math.random();  // Random t value along the curve
-            let texture, isVAR;
+            let texture, cardType;
             if ((i === numCards - 1 && !hasYellow) || Math.random() > 0.5) {
                 texture = yellow_card_texture;
-                isVAR = false;
+                cardType = 'yellow';
                 hasYellow = true;
             } else if ((i === numCards - 1 && !hasRed) || Math.random() > 0.5) {
                 texture = red_card_texture;
-                isVAR = false;
+                cardType = 'red';
                 hasRed = true;
             } else {
-                texture = textureLoader.load('src/textures/var_card.jpg'); // Load the VAR card texture
-                isVAR = true;
+                texture = var_card_texture;
+                cardType = 'VAR';
                 hasVAR = true;
             }
-            cards.push(createCardOnCurve(curve, t, texture, isVAR));
+            cards.push(createCardOnCurve(curve, t, texture, cardType));
         }
     });
 
@@ -303,13 +304,6 @@ function updateCameraPosition() {
 
     camera.lookAt(lookAtPosition); // Always look at the ball
 }
-
-
-// TODO: Add collectible cards with textures
-
-
-
-
 
 // TODO: Add keyboard event
 // We wrote some of the function for you
@@ -390,6 +384,14 @@ leftAdMesh.applyMatrix4(leftAdTranslateMatrix);
 scene.add(rightAdMesh);
 scene.add(leftAdMesh);
 
+function resetCards() {
+    cards.forEach(card => {
+        scene.remove(card.object3D);
+    });
+    cards = [];
+    initializeCards();
+}
+
 let lastTime = 0;
 function animate(time) {
 
@@ -419,27 +421,29 @@ function animate(time) {
 
 
     // TODO: Test for card-ball collision
-    const collisionTolerance = 0.05;  // Tolerance for collision detection
-    function checkForCollisions() {
-        cards.forEach(card => {
-            if (Math.abs(card.t - t) < collisionTolerance && card.curve === curves[currentCurve]) {
-                if (card.object3D.visible) {
-                    card.object3D.visible = false; // Hide the card visually
-                    if (card.texture === yellow_card_texture) {
+    const collisionTolerance = 0.005;  // Tolerance for collision detection
+    cards.forEach(card => {
+        if (card.curve === curves[currentCurve]) {
+            if (card.object3D.visible && Math.abs(card.t - t) < collisionTolerance) {
+                console.log(`Collision with ${card.cardType} card!`)
+                switch (card.cardType) {
+                    case 'yellow':
                         numYellowCards++;
-                    } else if (card.texture === red_card_texture) {
+                        break;
+                    case 'red':
                         numRedCards++;
-                    } else if (card.isVAR) {
-                        // Increase the Fair Play score for VAR cards
+                        break;
+                    case 'VAR':
                         numYellowCards = Math.max(0, numYellowCards - 1);
                         numRedCards = Math.max(0, numRedCards - 1);
-                    }
+                        break;
+                    default:
+                        break;
                 }
+                card.object3D.visible = false; // Hide the card visually
             }
-        });
-    }
-
-    checkForCollisions();
+        }
+    });
 
     if (hasReachedEnd) {
         let fairPlayScore = 100 * Math.pow(2, -(numYellowCards + 10 * numRedCards) / 10);
@@ -447,8 +451,9 @@ function animate(time) {
         hasReachedEnd = false;
         numYellowCards = 0;
         numRedCards=0;
+        currentCurve = 1;
         alert(`Your score is: ${fairPlayScore}! Press Enter to play again.`)
-        initializeCards();
+        resetCards()
         setTimeout(()=> {
             animateBallAlongCurve = true;
         },750);
