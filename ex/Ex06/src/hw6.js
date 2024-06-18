@@ -323,20 +323,20 @@ const handle_keydown = (e) => {
 document.addEventListener('keydown', handle_keydown);
 
 // Create a golden ball geometry
-const ballGeometry1 = new THREE.SphereGeometry(3, 32, 32); // Ball sphere
+const ballGeometry1 = new THREE.CylinderGeometry(6, 2, 8, 32); // Ball sphere
 const ballMaterial1 = new THREE.MeshPhongMaterial({ color: 0xffd700 }); // Golden material
 const ball1 = new THREE.Mesh(ballGeometry1, ballMaterial1);
 
-const baseGeometry = new THREE.CylinderGeometry(5, 5, 1, 32); // Base cylinder
+const baseGeometry = new THREE.CylinderGeometry(2, 3.5, 10, 32); // Base cylinder
 const baseMaterial = new THREE.MeshPhongMaterial({ color: 0xffd700 }); // Golden base
 const base = new THREE.Mesh(baseGeometry, baseMaterial);
-base.position.y = -2.5; // Position the base below the ball
+base.position.y = 1; // Position the base below the ball
+ball1.position.y = 5; // Position the ball on top of the base
 
 const trophy = new THREE.Group(); // Create a group to hold the trophy parts
 trophy.add(ball1);
 trophy.add(base);
 
-trophy.scale.set(2, 2, 2); // Adjust the scale as needed
 trophy.position.set(0, GOAL_HEIGHT + 20, GOAL_Z_POSITION - 32); // Position the trophy above the goal
 
 scene.add(trophy);
